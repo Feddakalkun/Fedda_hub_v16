@@ -53,6 +53,14 @@ function outputUrl(file: ComfyImage) {
   return comfyService.getImageUrl(file);
 }
 
+function isVitPosePreviewUrl(url: string) {
+  return /vitpose/i.test(url);
+}
+
+function isLikelySteadyDancerUrl(url: string) {
+  return /(dancer|wanvideowrapper_steadydancer|video%2fdancer|video\/dancer)/i.test(url);
+}
+
 function fmtTime(seconds: number) {
   if (!Number.isFinite(seconds)) return '0:00';
   const mins = Math.floor(seconds / 60);
@@ -352,9 +360,15 @@ export function Wan21SteadyDancerPage() {
     if (newVideos.length === 0) return;
     prevVideoCountRef.current = lastOutputVideos.length;
     const urls = newVideos.map((videoFile) => comfyService.getImageUrl(videoFile));
-    sessionRef.current = [...sessionRef.current, ...urls];
-    setCurrentVideo(urls[urls.length - 1]);
-    setHistory((prev) => [...urls, ...prev].slice(0, 40));
+    const nonVitpose = urls.filter((url) => !isVitPosePreviewUrl(url));
+    const preferred = nonVitpose.length > 0 ? nonVitpose : urls;
+    if (preferred.length === 0) return;
+
+    sessionRef.current = [...sessionRef.current, ...preferred];
+
+    const likelyFinal = preferred.find((url) => isLikelySteadyDancerUrl(url));
+    setCurrentVideo(likelyFinal || preferred[preferred.length - 1]);
+    setHistory((prev) => [...preferred, ...prev].slice(0, 40));
   }, [outputReadyCount, lastOutputVideos, isGenerating, pendingPromptId, setHistory]);
 
   useEffect(() => {
