@@ -96,6 +96,18 @@
     "note": "KJNodes utilities"
   },
   {
+    "name": "ComfyUI-WanVideoWrapper",
+    "url": "https://github.com/kijai/ComfyUI-WanVideoWrapper.git",
+    "folder": "ComfyUI-WanVideoWrapper",
+    "note": "WAN video wrapper nodes for Steady Dancer and WAN video pipelines"
+  },
+  {
+    "name": "ComfyUI-WanAnimatePreprocess",
+    "url": "https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git",
+    "folder": "ComfyUI-WanAnimatePreprocess",
+    "note": "WAN animate preprocess nodes for pose/detection preprocessing"
+  },
+  {
     "name": "ComfyUI-SeedVR2_VideoUpscaler",
     "url": "https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git",
     "folder": "ComfyUI-SeedVR2_VideoUpscaler",

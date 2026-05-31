@@ -49,6 +49,7 @@ CORE_FOLDERS = {
     "comfyui-qwenmultiangle",
     "ComfyUI-VideoHelperSuite",
     "ComfyUI-WanVideoWrapper",
+    "ComfyUI-WanAnimatePreprocess",
     "ComfyUI-LTXVideo",
     "ComfyUI-GGUF",
     "ComfyMath",
