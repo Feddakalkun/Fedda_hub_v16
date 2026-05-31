@@ -1,38 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useState } from 'react';
 import type { DragEvent as ReactDragEvent } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Expand, Loader2, Minus, Plus, RefreshCw, Upload } from 'lucide-react';
+import { Camera, Expand, Loader2, Minus, Plus, RefreshCw, Upload } from 'lucide-react';
 import { BACKEND_API } from '../../config/api';
 import { useToast } from '../../components/ui/Toast';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { usePersistentState } from '../../hooks/usePersistentState';
 
-const WHEEL_SIZE = 260;
-const WHEEL_RADIUS_X = 92;
-const WHEEL_RADIUS_Y = 34;
-const VERTICAL_RANGE = 60;
-const ORBIT_ROTATION_DEG = -90;
-
-type Preset = {
-  id: string;
-  label: string;
-  value: number;
-};
-
-type WorkflowModelFile = {
-  filename: string;
-  folder: string;
-  exists: boolean;
-  size_bytes?: number;
-  node_title?: string;
-};
-
-type WorkflowModelStatus = {
-  ready: boolean;
-  total: number;
-  missing_count: number;
-  files: WorkflowModelFile[];
-};
+const MAX_SHOTS = 6;
 
 type CameraShot = {
   label: string;
@@ -41,28 +15,37 @@ type CameraShot = {
   z: number;
 };
 
-const H_PRESETS: Preset[] = [
-  { id: 'front', label: 'front view', value: 0 },
-  { id: 'left-30', label: 'left 30 deg', value: -30 },
-  { id: 'right-30', label: 'right 30 deg', value: 30 },
-  { id: 'left-profile', label: 'left profile', value: -90 },
-  { id: 'right-profile', label: 'right profile', value: 90 },
-  { id: 'back', label: 'back view', value: 180 },
+const DEFAULT_SHOTS: CameraShot[] = [
+  { label: 'Shot 1', h: 0, v: 0, z: 5 },
+  { label: 'Shot 2', h: -45, v: 0, z: 5 },
+  { label: 'Shot 3', h: 45, v: 0, z: 5 },
+  { label: 'Shot 4', h: 0, v: 28, z: 5 },
+  { label: 'Shot 5', h: 0, v: -28, z: 5 },
+  { label: 'Shot 6', h: 180, v: 0, z: 4 },
 ];
 
-const V_PRESETS: Preset[] = [
-  { id: 'eye', label: 'eye-level shot', value: 0 },
-  { id: 'high', label: 'high-angle shot', value: 30 },
-  { id: 'low', label: 'low-angle shot', value: -30 },
-  { id: 'top', label: 'top-down shot', value: 55 },
-  { id: 'worm', label: 'worm-eye shot', value: -55 },
+const H_PRESETS = [
+  { label: 'Front', value: 0 },
+  { label: 'Left 30', value: -30 },
+  { label: 'Right 30', value: 30 },
+  { label: 'Left profile', value: -90 },
+  { label: 'Right profile', value: 90 },
+  { label: 'Back', value: 180 },
 ];
 
-const Z_PRESETS: Preset[] = [
-  { id: 'close', label: 'close-up', value: 2 },
-  { id: 'medium', label: 'medium shot', value: 5 },
-  { id: 'full', label: 'full body', value: 8 },
-  { id: 'wide', label: 'wide shot', value: 10 },
+const V_PRESETS = [
+  { label: 'Eye', value: 0 },
+  { label: 'High', value: 30 },
+  { label: 'Low', value: -30 },
+  { label: 'Top', value: 55 },
+  { label: 'Worm', value: -55 },
+];
+
+const Z_PRESETS = [
+  { label: 'Close', value: 2 },
+  { label: 'Medium', value: 5 },
+  { label: 'Full', value: 8 },
+  { label: 'Wide', value: 10 },
 ];
 
 function clamp(value: number, min: number, max: number): number {
@@ -76,235 +59,70 @@ function normalizeDegrees(value: number): number {
   return out;
 }
 
-function nearestPresetId(value: number, presets: Preset[], tolerance: number): string {
-  let best = presets[0];
-  let bestDiff = Math.abs(value - best.value);
-  for (const preset of presets) {
-    const diff = Math.abs(value - preset.value);
-    if (diff < bestDiff) {
-      best = preset;
-      bestDiff = diff;
-    }
-  }
-  return bestDiff <= tolerance ? best.id : 'custom';
-}
-
-function labelFromPresetId(id: string, presets: Preset[], fallback: string): string {
-  const found = presets.find((p) => p.id === id);
-  return found ? found.label : fallback;
-}
-
-function describeHorizontal(angle: number): string {
-  const normalized = normalizeDegrees(angle);
-  if (Math.abs(normalized) <= 12) return 'front view';
-  if (Math.abs(normalized) >= 168) return 'back view';
-  if (normalized > 0) return `right ${Math.abs(normalized)} deg`;
-  return `left ${Math.abs(normalized)} deg`;
-}
-
-function describeVertical(angle: number): string {
-  if (Math.abs(angle) <= 6) return 'eye-level';
-  if (angle > 0) return `high-angle ${angle} deg`;
-  return `low-angle ${Math.abs(angle)} deg`;
-}
-
 function toWorkflowHorizontalAngle(angle: number): number {
   const normalized = normalizeDegrees(angle);
   return normalized < 0 ? normalized + 360 : normalized;
 }
 
-function buildSixShotPlan(horizontalAngle: number, verticalAngle: number, zoom: number): CameraShot[] {
-  const centerV = clamp(verticalAngle, -VERTICAL_RANGE, VERTICAL_RANGE);
-  const centerZ = clamp(zoom, 1, 12);
-  return [
-    { label: 'Selected', h: horizontalAngle, v: centerV, z: centerZ },
-    { label: 'Left orbit', h: horizontalAngle - 45, v: centerV, z: centerZ },
-    { label: 'Right orbit', h: horizontalAngle + 45, v: centerV, z: centerZ },
-    { label: 'High angle', h: horizontalAngle, v: clamp(centerV + 28, -VERTICAL_RANGE, VERTICAL_RANGE), z: centerZ },
-    { label: 'Low angle', h: horizontalAngle, v: clamp(centerV - 28, -VERTICAL_RANGE, VERTICAL_RANGE), z: centerZ },
-    { label: 'Reverse', h: horizontalAngle + 180, v: centerV, z: Math.max(1, centerZ - 1.2) },
-  ];
+function sanitizeShots(shots: CameraShot[]): CameraShot[] {
+  const source = Array.isArray(shots) && shots.length ? shots : DEFAULT_SHOTS.slice(0, 1);
+  return source.slice(0, MAX_SHOTS).map((shot, index) => ({
+    label: shot.label || `Shot ${index + 1}`,
+    h: normalizeDegrees(Number(shot.h) || 0),
+    v: clamp(Number(shot.v) || 0, -60, 60),
+    z: clamp(Number(shot.z) || 5, 1, 12),
+  }));
 }
 
-function formatBytes(value?: number): string {
-  const bytes = Number(value ?? 0);
-  if (!Number.isFinite(bytes) || bytes <= 0) return '';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+function padShots(shots: CameraShot[]): CameraShot[] {
+  const clean = sanitizeShots(shots);
+  return [...clean, ...DEFAULT_SHOTS.slice(clean.length)].slice(0, MAX_SHOTS);
 }
 
 export const QwenMultiAnglesPage = () => {
   const { toast } = useToast();
-  const wheelRef = useRef<HTMLDivElement | null>(null);
-  const [dragTarget, setDragTarget] = useState<'h' | 'v' | 'z' | null>(null);
-  const [horizontalAngle, setHorizontalAngle] = useState(0);
-  const [verticalAngle, setVerticalAngle] = useState(0);
-  const [zoom, setZoom] = useState(5);
-  const [hPresetId, setHPresetId] = useState('front');
-  const [vPresetId, setVPresetId] = useState('eye');
-  const [zPresetId, setZPresetId] = useState('medium');
-  const [defaultPrompts, setDefaultPrompts] = useState(false);
-  const [cameraView, setCameraView] = useState(false);
-  const [shotCount, setShotCount] = usePersistentState('qwen_multiangle_shot_count', 1);
-  const [seed, setSeed] = useState(-1);
+  const [shots, setShots] = usePersistentState<CameraShot[]>('qwen_multiangle_shots_v2', DEFAULT_SHOTS.slice(0, 1));
+  const [history, setHistory] = usePersistentState<string[]>('qwen_multiangle_history', []);
+  const [seed, setSeed] = usePersistentState('qwen_multiangle_seed', -1);
+  const [defaultPrompts, setDefaultPrompts] = usePersistentState('qwen_multiangle_default_prompts', false);
+  const [cameraView, setCameraView] = usePersistentState('qwen_multiangle_camera_view', false);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCheckingModels, setIsCheckingModels] = useState(false);
-  const [modelStatus, setModelStatus] = useState<WorkflowModelStatus | null>(null);
-  const [modelStatusError, setModelStatusError] = useState('');
   const [uploadedImageName, setUploadedImageName] = useState('');
   const [uploadedPreview, setUploadedPreview] = useState('');
   const [generationError, setGenerationError] = useState('');
   const [results, setResults] = useState<string[]>([]);
-  const [history, setHistory] = usePersistentState<string[]>('qwen_multiangle_history', []);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const normalizedShotCount = clamp(Math.round(Number(shotCount) || 1), 1, 6);
-  const workflowId = normalizedShotCount === 1 ? 'qwen-multi-angles-fast' : 'qwen-multi-angles';
-  const allShotPlan = useMemo(
-    () => buildSixShotPlan(horizontalAngle, verticalAngle, zoom),
-    [horizontalAngle, verticalAngle, zoom],
-  );
-  const shotPlan = allShotPlan.slice(0, normalizedShotCount);
+
+  const activeShots = sanitizeShots(shots);
   const previewItems = [...results, ...history.filter((url) => !results.includes(url))].slice(0, 12);
+  const workflowId = activeShots.length === 1 ? 'qwen-multi-angles-fast' : 'qwen-multi-angles';
 
-  useEffect(() => {
-    setHPresetId(nearestPresetId(horizontalAngle, H_PRESETS, 5));
-    setVPresetId(nearestPresetId(verticalAngle, V_PRESETS, 4));
-  }, [horizontalAngle, verticalAngle]);
-
-  useEffect(() => {
-    setZPresetId(nearestPresetId(zoom, Z_PRESETS, 1));
-  }, [zoom]);
-
-  const refreshModelStatus = async () => {
-    setIsCheckingModels(true);
-    setModelStatusError('');
-    try {
-      const res = await fetch(
-        `${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.WORKFLOW_MODEL_STATUS}/${encodeURIComponent(workflowId)}`,
-      );
-      const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.detail || data?.error || 'Could not check workflow models');
-      }
-      setModelStatus({
-        ready: Boolean(data.ready),
-        total: Number(data.total ?? 0),
-        missing_count: Number(data.missing_count ?? 0),
-        files: Array.isArray(data.files) ? data.files : [],
-      });
-    } catch (err: any) {
-      setModelStatus(null);
-      setModelStatusError(err?.message || 'Could not check workflow models');
-    } finally {
-      setIsCheckingModels(false);
-    }
+  const setShot = (index: number, patch: Partial<CameraShot>) => {
+    setShots((prev) => {
+      const next = sanitizeShots(prev);
+      next[index] = {
+        ...next[index],
+        ...patch,
+        h: patch.h !== undefined ? normalizeDegrees(patch.h) : next[index].h,
+        v: patch.v !== undefined ? clamp(patch.v, -60, 60) : next[index].v,
+        z: patch.z !== undefined ? clamp(patch.z, 1, 12) : next[index].z,
+      };
+      return next;
+    });
   };
 
-  useEffect(() => {
-    void refreshModelStatus();
-  }, [workflowId]);
-
-  const promptText = useMemo(() => {
-    const hLabel = labelFromPresetId(hPresetId, H_PRESETS, `h-${horizontalAngle}`);
-    const vLabel = labelFromPresetId(vPresetId, V_PRESETS, `v-${verticalAngle}`);
-    const zLabel = labelFromPresetId(zPresetId, Z_PRESETS, `z-${zoom.toFixed(1)}`);
-    return `<sks> ${hLabel} ${vLabel} ${zLabel}`;
-  }, [hPresetId, vPresetId, zPresetId, horizontalAngle, verticalAngle, zoom]);
-
-  const resetCamera = () => {
-    setHorizontalAngle(0);
-    setVerticalAngle(0);
-    setZoom(5);
-    setHPresetId('front');
-    setVPresetId('eye');
-    setZPresetId('medium');
+  const addShot = () => {
+    setShots((prev) => {
+      const next = sanitizeShots(prev);
+      if (next.length >= MAX_SHOTS) return next;
+      return [...next, { ...DEFAULT_SHOTS[next.length], label: `Shot ${next.length + 1}` }];
+    });
   };
 
-  const updateHorizontalFromPointer = (clientX: number, clientY: number) => {
-    const el = wheelRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2 + 8;
-    const dx = (clientX - cx) / Math.max(1, WHEEL_RADIUS_X);
-    const dy = (clientY - cy) / Math.max(1, WHEEL_RADIUS_Y);
-    const thetaDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
-    const h = normalizeDegrees(thetaDeg - ORBIT_ROTATION_DEG);
-    setHorizontalAngle(Math.round(h));
-  };
-
-  const updateVerticalFromPointer = (clientY: number) => {
-    const el = wheelRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cy = rect.top + rect.height / 2 + 8;
-    const arcTop = cy - 110;
-    const arcBottom = cy;
-    const t = clamp((clientY - arcTop) / Math.max(1, arcBottom - arcTop), 0, 1);
-    const value = VERTICAL_RANGE - t * (VERTICAL_RANGE * 2);
-    setVerticalAngle(Math.round(clamp(value, -VERTICAL_RANGE, VERTICAL_RANGE)));
-  };
-
-  const updateZoomFromPointer = (clientX: number) => {
-    const el = wheelRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const left = rect.left + 36;
-    const right = rect.left + 224;
-    const t = clamp((clientX - left) / Math.max(1, right - left), 0, 1);
-    setZoom(Number((1 + t * 11).toFixed(1)));
-  };
-
-  useEffect(() => {
-    if (!dragTarget) return;
-    const onMove = (ev: PointerEvent) => {
-      if (dragTarget === 'h') updateHorizontalFromPointer(ev.clientX, ev.clientY);
-      if (dragTarget === 'v') updateVerticalFromPointer(ev.clientY);
-      if (dragTarget === 'z') updateZoomFromPointer(ev.clientX);
-    };
-    const onUp = () => setDragTarget(null);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-  }, [dragTarget]);
-
-  const onHorizontalDown = (ev: ReactPointerEvent<HTMLDivElement>) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    setDragTarget('h');
-    updateHorizontalFromPointer(ev.clientX, ev.clientY);
-  };
-
-  const onHorizontalDownSvg = (ev: ReactPointerEvent<SVGEllipseElement>) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    setDragTarget('h');
-    updateHorizontalFromPointer(ev.clientX, ev.clientY);
-  };
-
-  const onVerticalDown = (ev: ReactPointerEvent<HTMLDivElement>) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    setDragTarget('v');
-    updateVerticalFromPointer(ev.clientY);
-  };
-
-  const onZoomDown = (ev: ReactPointerEvent<HTMLDivElement>) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    setDragTarget('z');
-    updateZoomFromPointer(ev.clientX);
+  const removeShot = (index: number) => {
+    setShots((prev) => sanitizeShots(prev).filter((_, i) => i !== index).map((shot, i) => ({ ...shot, label: `Shot ${i + 1}` })));
   };
 
   const uploadReference = async (file: File) => {
@@ -314,9 +132,7 @@ export const QwenMultiAnglesPage = () => {
       body.append('file', file);
       const res = await fetch(`${BACKEND_API.BASE_URL}/api/upload`, { method: 'POST', body });
       const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.detail || data?.error || 'Upload failed');
-      }
+      if (!res.ok || !data?.success) throw new Error(data?.detail || data?.error || 'Upload failed');
       setUploadedImageName(String(data.filename ?? ''));
       if (uploadedPreview.startsWith('blob:')) URL.revokeObjectURL(uploadedPreview);
       setUploadedPreview(URL.createObjectURL(file));
@@ -340,15 +156,13 @@ export const QwenMultiAnglesPage = () => {
     await uploadReference(file);
   };
 
-  const pollResults = async (promptId: string) => {
-    const expectedCount = normalizedShotCount;
+  const pollResults = async (promptId: string, expectedCount: number) => {
     const started = Date.now();
     while (Date.now() - started < 240_000) {
       const res = await fetch(`${BACKEND_API.BASE_URL}/api/generate/status/${encodeURIComponent(promptId)}`);
       const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.detail || data?.error || 'Status check failed');
-      }
+      if (!res.ok || !data?.success) throw new Error(data?.detail || data?.error || 'Status check failed');
+
       const state = String(data.status ?? '');
       if (state === 'completed') {
         const imgs = Array.isArray(data.images) ? data.images : [];
@@ -357,19 +171,12 @@ export const QwenMultiAnglesPage = () => {
             `/comfy/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder ?? '')}&type=${encodeURIComponent(img.type ?? 'output')}`,
         );
         if (urls.length === 0) {
-          throw new Error(
-            'ComfyUI completed the workflow, but did not return an image file. Check the ComfyUI terminal for VAE/model warnings.',
-          );
-        }
-        if (urls.length < expectedCount) {
-          toast(`Workflow returned ${urls.length} of ${expectedCount} expected outputs.`, 'info');
+          throw new Error('ComfyUI completed the workflow, but did not return an image file.');
         }
         const nextResults = urls.slice(0, expectedCount);
         setResults(nextResults);
-        setHistory((prev) => {
-          const merged = [...nextResults, ...prev.filter((url) => !nextResults.includes(url))];
-          return merged.slice(0, 40);
-        });
+        setHistory((prev) => [...nextResults, ...prev.filter((url) => !nextResults.includes(url))].slice(0, 40));
+        if (urls.length < expectedCount) toast(`Workflow returned ${urls.length} of ${expectedCount} expected outputs.`, 'info');
         return;
       }
       if (state === 'not_found' || state === 'pending' || state === 'running') {
@@ -386,25 +193,27 @@ export const QwenMultiAnglesPage = () => {
       toast('Upload one image first', 'error');
       return;
     }
+    const shotPayload = padShots(activeShots);
+    const expectedCount = activeShots.length;
     setIsGenerating(true);
     setGenerationError('');
     setResults([]);
     try {
       const chosenSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_000) : seed;
-      const isMultiShot = normalizedShotCount > 1;
+      const isMultiShot = expectedCount > 1;
       const payload = {
         workflow_id: workflowId,
         params: {
           image: uploadedImageName,
           horizontal_angle: isMultiShot
-            ? allShotPlan.map((shot) => toWorkflowHorizontalAngle(shot.h))
-            : toWorkflowHorizontalAngle(horizontalAngle),
-          vertical_angle: isMultiShot ? allShotPlan.map((shot) => shot.v) : verticalAngle,
-          zoom: isMultiShot ? allShotPlan.map((shot) => shot.z) : zoom,
-          default_prompts: isMultiShot ? allShotPlan.map(() => defaultPrompts) : defaultPrompts,
-          camera_view: isMultiShot ? allShotPlan.map(() => cameraView) : cameraView,
+            ? shotPayload.map((shot) => toWorkflowHorizontalAngle(shot.h))
+            : toWorkflowHorizontalAngle(activeShots[0].h),
+          vertical_angle: isMultiShot ? shotPayload.map((shot) => shot.v) : activeShots[0].v,
+          zoom: isMultiShot ? shotPayload.map((shot) => shot.z) : activeShots[0].z,
+          default_prompts: isMultiShot ? shotPayload.map(() => defaultPrompts) : defaultPrompts,
+          camera_view: isMultiShot ? shotPayload.map(() => cameraView) : cameraView,
           seed: chosenSeed,
-          shot_count: normalizedShotCount,
+          shot_count: expectedCount,
         },
       };
       const res = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.GENERATE}`, {
@@ -416,11 +225,8 @@ export const QwenMultiAnglesPage = () => {
       if (!res.ok || !data?.success || !data?.prompt_id) {
         throw new Error(data?.detail || data?.error || 'Failed to start generation');
       }
-      if (modelStatus && !modelStatus.ready) {
-        toast('Model downloader node is running. First run can take a while.', 'info');
-      }
-      await pollResults(String(data.prompt_id));
-      toast(`Multi-angle generation complete (${normalizedShotCount} shot${normalizedShotCount === 1 ? '' : 's'})`, 'success');
+      await pollResults(String(data.prompt_id), expectedCount);
+      toast(`Multi-angle generation complete (${expectedCount} shot${expectedCount === 1 ? '' : 's'})`, 'success');
     } catch (err: any) {
       const message = err?.message || 'Generation failed';
       setGenerationError(message);
@@ -430,28 +236,19 @@ export const QwenMultiAnglesPage = () => {
     }
   };
 
-  const cx = WHEEL_SIZE / 2;
-  const cy = WHEEL_SIZE / 2 + 8;
-  const orbitTheta = ((horizontalAngle + ORBIT_ROTATION_DEG) * Math.PI) / 180;
-  const knobX = cx + Math.cos(orbitTheta) * WHEEL_RADIUS_X;
-  const ringKnobY = cy + Math.sin(orbitTheta) * WHEEL_RADIUS_Y;
-  const zoomKnobX = 36 + ((zoom - 1) / 11) * 188;
-
   return (
     <div className="h-full overflow-y-auto custom-scrollbar px-6 py-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
+        <section className="rounded-xl border border-white/10 bg-black/25 p-4">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-amber-100">Qwen Multiangle Camera</h3>
-              <p className="text-xs text-slate-400 mt-1">Recent Qwen outputs and live shot checks.</p>
+              <h3 className="text-sm font-semibold tracking-wide text-zinc-100">Qwen Multi Angle</h3>
+              <p className="text-xs text-zinc-500 mt-1">Recent outputs</p>
             </div>
-            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
-              {previewItems.length} previews
-            </span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">{previewItems.length} previews</span>
           </div>
           {previewItems.length === 0 ? (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-[11px] text-white/40">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-[11px] text-zinc-500">
               Generate angles to fill this preview bar.
             </div>
           ) : (
@@ -461,11 +258,11 @@ export const QwenMultiAnglesPage = () => {
                   key={`${url}-${idx}`}
                   type="button"
                   onClick={() => setLightboxImage(url)}
-                  className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-black/40 hover:border-cyan-300/50"
+                  className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-black/40 hover:border-white/40"
                 >
                   <img src={url} alt={`Preview ${idx + 1}`} className="h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/30" />
-                  <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5 text-white/80 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.5 text-white/80 opacity-0 transition-opacity group-hover:opacity-100">
                     <Expand className="h-2.5 w-2.5" />
                   </div>
                 </button>
@@ -474,18 +271,17 @@ export const QwenMultiAnglesPage = () => {
           )}
         </section>
 
-        <section className="space-y-4 rounded-2xl border border-white/10 bg-[#141018] p-4 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]">
-
+        <section className="space-y-4 rounded-xl border border-white/10 bg-zinc-950 p-4">
           <div className="grid gap-3 lg:grid-cols-[220px_1fr]">
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+            <div className="overflow-hidden rounded-lg border border-white/10 bg-black/40">
               {uploadedPreview ? (
                 <img src={uploadedPreview} alt="Reference" className="h-52 w-full object-cover" />
               ) : (
-                <div className="flex h-52 items-center justify-center text-[11px] text-slate-500">No reference loaded</div>
+                <div className="flex h-52 items-center justify-center text-[11px] text-zinc-600">No reference loaded</div>
               )}
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <label className="text-[11px] uppercase tracking-[0.12em] text-slate-400 block mb-2">Reference Image</label>
+            <div className="rounded-lg border border-white/10 bg-black/35 p-3">
+              <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-500 block mb-2">Reference Image</label>
               <div
                 onDragOver={(ev) => {
                   ev.preventDefault();
@@ -499,12 +295,10 @@ export const QwenMultiAnglesPage = () => {
                 }}
                 onDrop={(ev) => void handleFileDrop(ev)}
                 className={`flex min-h-28 items-center justify-center rounded-lg border border-dashed p-3 transition-colors ${
-                  isDragOver
-                    ? 'border-cyan-300 bg-cyan-500/15'
-                    : 'border-cyan-400/35 bg-cyan-500/5'
+                  isDragOver ? 'border-white/45 bg-white/10' : 'border-white/15 bg-white/[0.03]'
                 }`}
               >
-                <label className="w-full cursor-pointer flex items-center justify-center gap-2 text-sm text-cyan-200 hover:text-cyan-100">
+                <label className="w-full cursor-pointer flex items-center justify-center gap-2 text-sm text-zinc-300 hover:text-white">
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   {isUploading ? 'Uploading...' : 'Drop Image Here or Click Upload'}
                   <input
@@ -518,334 +312,136 @@ export const QwenMultiAnglesPage = () => {
                   />
                 </label>
               </div>
-              {uploadedImageName && <p className="mt-2 text-[11px] text-emerald-300">Loaded: {uploadedImageName}</p>}
+              {uploadedImageName && <p className="mt-2 text-[11px] text-zinc-400">Loaded: {uploadedImageName}</p>}
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">Shot Count</div>
-                <p className="mt-1 text-[10px] text-slate-500">Start with one angle. Add only the shots you want to render.</p>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-300">Camera Angles</div>
+                <p className="mt-1 text-[10px] text-zinc-600">Add one card per angle. Three cards fit per row on desktop.</p>
               </div>
-              <div className="inline-flex items-center overflow-hidden rounded-lg border border-white/10 bg-black/40">
-                <button
-                  type="button"
-                  onClick={() => setShotCount((value) => clamp(Math.round(Number(value) || 1) - 1, 1, 6))}
-                  className="inline-flex h-9 w-9 items-center justify-center text-slate-300 hover:bg-white/10 disabled:opacity-40"
-                  disabled={normalizedShotCount <= 1}
-                  title="Remove one shot"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <div className="w-16 text-center text-sm font-semibold text-white">{normalizedShotCount}</div>
-                <button
-                  type="button"
-                  onClick={() => setShotCount((value) => clamp(Math.round(Number(value) || 1) + 1, 1, 6))}
-                  className="inline-flex h-9 w-9 items-center justify-center text-slate-300 hover:bg-white/10 disabled:opacity-40"
-                  disabled={normalizedShotCount >= 6}
-                  title="Add one shot"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={addShot}
+                disabled={activeShots.length >= MAX_SHOTS}
+                className="inline-flex items-center gap-2 rounded border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-zinc-200 hover:bg-white/[0.08] disabled:opacity-40"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Angle
+              </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-              {shotPlan.map((shot, idx) => (
-                <div key={shot.label} className="rounded border border-cyan-400/15 bg-cyan-500/5 px-2 py-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-[10px] text-slate-200">{idx + 1}. {shot.label}</div>
-                    {idx > 0 && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {activeShots.map((shot, idx) => (
+                <div key={`${shot.label}-${idx}`} className="rounded-lg border border-white/10 bg-zinc-950/80 p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-xs font-semibold text-zinc-100">{shot.label}</div>
+                    {activeShots.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => setShotCount(idx)}
-                        className="text-[9px] uppercase tracking-[0.12em] text-slate-500 hover:text-red-200"
+                        onClick={() => removeShot(idx)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded border border-white/10 text-zinc-500 hover:text-zinc-100"
+                        title="Remove angle"
                       >
-                        remove
+                        <Minus className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
-                  <div className="mt-0.5 text-[9px] text-slate-500">
-                    H {normalizeDegrees(shot.h)} / V {shot.v} / Z {shot.z.toFixed(1)}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="text-[10px] text-zinc-500">
+                      H
+                      <select
+                        value={H_PRESETS.some((p) => p.value === shot.h) ? shot.h : 'custom'}
+                        onChange={(e) => {
+                          if (e.target.value !== 'custom') setShot(idx, { h: Number(e.target.value) });
+                        }}
+                        className="mt-1 w-full rounded border border-white/10 bg-black px-2 py-1.5 text-[11px] text-zinc-200"
+                      >
+                        {H_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label className="text-[10px] text-zinc-500">
+                      V
+                      <select
+                        value={V_PRESETS.some((p) => p.value === shot.v) ? shot.v : 'custom'}
+                        onChange={(e) => {
+                          if (e.target.value !== 'custom') setShot(idx, { v: Number(e.target.value) });
+                        }}
+                        className="mt-1 w-full rounded border border-white/10 bg-black px-2 py-1.5 text-[11px] text-zinc-200"
+                      >
+                        {V_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label className="text-[10px] text-zinc-500">
+                      Z
+                      <select
+                        value={Z_PRESETS.some((p) => p.value === shot.z) ? shot.z : 'custom'}
+                        onChange={(e) => {
+                          if (e.target.value !== 'custom') setShot(idx, { z: Number(e.target.value) });
+                        }}
+                        className="mt-1 w-full rounded border border-white/10 bg-black px-2 py-1.5 text-[11px] text-zinc-200"
+                      >
+                        {Z_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <input
+                      type="number"
+                      value={shot.h}
+                      min={-180}
+                      max={180}
+                      onChange={(e) => setShot(idx, { h: Number(e.target.value) })}
+                      className="rounded border border-white/10 bg-black px-2 py-1.5 text-center text-[11px] text-zinc-300"
+                    />
+                    <input
+                      type="number"
+                      value={shot.v}
+                      min={-60}
+                      max={60}
+                      onChange={(e) => setShot(idx, { v: Number(e.target.value) })}
+                      className="rounded border border-white/10 bg-black px-2 py-1.5 text-center text-[11px] text-zinc-300"
+                    />
+                    <input
+                      type="number"
+                      value={shot.z}
+                      min={1}
+                      max={12}
+                      step={0.1}
+                      onChange={(e) => setShot(idx, { z: Number(e.target.value) })}
+                      className="rounded border border-white/10 bg-black px-2 py-1.5 text-center text-[11px] text-zinc-300"
+                    />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div
-            className={`rounded-xl border p-3 ${
-              modelStatus?.ready
-                ? 'border-emerald-400/30 bg-emerald-500/10'
-                : 'border-amber-300/30 bg-amber-500/10'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2">
-                {modelStatus?.ready ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-                ) : (
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-                )}
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200">
-                    Model Pack
-                  </div>
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    {modelStatusError
-                      ? modelStatusError
-                      : modelStatus
-                        ? modelStatus.ready
-                          ? `${modelStatus.total} required files found.`
-                          : `${modelStatus.missing_count} of ${modelStatus.total} files missing. The Comfy downloader node will fetch them on first run.`
-                        : isCheckingModels
-                          ? 'Checking workflow model files...'
-                          : 'Model status not checked yet.'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => void refreshModelStatus()}
-                disabled={isCheckingModels}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/10 bg-black/30 text-slate-300 hover:text-white disabled:opacity-50"
-                title="Refresh model status"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isCheckingModels ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            {modelStatus?.files?.length ? (
-              <div className="mt-3 max-h-36 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
-                {modelStatus.files.map((file) => (
-                  <div
-                    key={`${file.folder}/${file.filename}`}
-                    className="grid grid-cols-[1fr_auto] gap-2 rounded border border-white/10 bg-black/25 px-2 py-1.5 text-[10px]"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-slate-200" title={file.filename}>
-                        {file.filename}
-                      </div>
-                      <div className="truncate text-slate-500">
-                        {file.folder}{file.node_title ? ` - ${file.node_title}` : ''}
-                      </div>
-                    </div>
-                    <div className={file.exists ? 'text-emerald-300' : 'text-amber-300'}>
-                      {file.exists ? `FOUND ${formatBytes(file.size_bytes)}`.trim() : 'MISSING'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="rounded-xl border border-fuchsia-500/35 bg-[#0d0b12] p-3">
-            <div className="text-[11px] text-fuchsia-300 mb-2 font-mono">{promptText}</div>
-            <div className="mb-2 text-[10px] text-slate-400">
-              Drag controls or use sliders: <span className="text-fuchsia-300">pink = H</span>, <span className="text-cyan-300">cyan = V</span>, <span className="text-amber-300">amber = Z</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <label className="text-[11px] flex items-center justify-between rounded border border-white/10 px-2 py-1 text-slate-300">
+          <div className="grid gap-3 lg:grid-cols-[1fr_220px]">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[11px] flex items-center justify-between rounded border border-white/10 bg-black/30 px-3 py-2 text-zinc-400">
                 <span>default_prompts</span>
                 <input type="checkbox" checked={defaultPrompts} onChange={(e) => setDefaultPrompts(e.target.checked)} />
               </label>
-              <label className="text-[11px] flex items-center justify-between rounded border border-white/10 px-2 py-1 text-slate-300">
+              <label className="text-[11px] flex items-center justify-between rounded border border-white/10 bg-black/30 px-3 py-2 text-zinc-400">
                 <span>camera_view</span>
                 <input type="checkbox" checked={cameraView} onChange={(e) => setCameraView(e.target.checked)} />
               </label>
             </div>
-
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <label className="text-[11px] text-slate-400">
-                H
-                <select
-                  value={hPresetId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setHPresetId(id);
-                    const match = H_PRESETS.find((p) => p.id === id);
-                    if (match) setHorizontalAngle(match.value);
-                  }}
-                  className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-1 text-slate-100"
-                >
-                  {H_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  <option value="custom">custom</option>
-                </select>
-              </label>
-              <label className="text-[11px] text-slate-400">
-                V
-                <select
-                  value={vPresetId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setVPresetId(id);
-                    const match = V_PRESETS.find((p) => p.id === id);
-                    if (match) setVerticalAngle(match.value);
-                  }}
-                  className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-1 text-slate-100"
-                >
-                  {V_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  <option value="custom">custom</option>
-                </select>
-              </label>
-              <label className="text-[11px] text-slate-400">
-                Z
-                <select
-                  value={zPresetId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setZPresetId(id);
-                    const match = Z_PRESETS.find((p) => p.id === id);
-                    if (match) setZoom(match.value);
-                  }}
-                  className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-1 text-slate-100"
-                >
-                  {Z_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  <option value="custom">custom</option>
-                </select>
-              </label>
-            </div>
-
-            <div
-              ref={wheelRef}
-              className="relative mx-auto touch-none rounded-lg border border-white/10 bg-[radial-gradient(circle_at_center,rgba(17,24,39,0.65),rgba(2,6,23,0.95))]"
-              style={{ width: WHEEL_SIZE, height: WHEEL_SIZE }}
-            >
-              <svg width={WHEEL_SIZE} height={WHEEL_SIZE} className="absolute inset-0">
-                <defs>
-                  <linearGradient id="ringPink" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#ff2f92" />
-                    <stop offset="100%" stopColor="#ff66bd" />
-                  </linearGradient>
-                  <linearGradient id="arcCyan" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#22d3ee" />
-                    <stop offset="100%" stopColor="#34d399" />
-                  </linearGradient>
-                </defs>
-                <ellipse
-                  cx={cx}
-                  cy={cy}
-                  rx={WHEEL_RADIUS_X}
-                  ry={WHEEL_RADIUS_Y}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth="24"
-                  style={{ pointerEvents: 'stroke' }}
-                  onPointerDown={onHorizontalDownSvg}
-                />
-                <ellipse cx={cx} cy={cy} rx={WHEEL_RADIUS_X} ry={WHEEL_RADIUS_Y} fill="none" stroke="url(#ringPink)" strokeWidth="7" />
-                <path d={`M ${cx - 92} ${cy} Q ${cx - 116} ${cy - 58} ${cx - 96} ${cy - 110}`} fill="none" stroke="url(#arcCyan)" strokeWidth="5" />
-                <rect x={cx - 16} y={cy - 58} width="32" height="72" fill="rgba(148,163,184,0.2)" stroke="#f472b6" strokeWidth="1.5" />
-                <line x1={cx} y1={cy - 18} x2={cx + 30} y2={cy - 28} stroke="#fbbf24" strokeWidth="3" />
-              </svg>
-
-              <div className="absolute left-1/2 top-[28px] -translate-x-1/2 text-[9px] text-slate-500 select-none">back</div>
-              <div className="absolute left-1/2 bottom-[44px] -translate-x-1/2 text-[9px] text-slate-500 select-none">front</div>
-              <div className="absolute left-[26px] top-1/2 -translate-y-1/2 text-[9px] text-slate-500 select-none">left</div>
-              <div className="absolute right-[26px] top-1/2 -translate-y-1/2 text-[9px] text-slate-500 select-none">right</div>
-
-              <div
-                className="absolute w-4 h-4 rounded-full border border-fuchsia-100 bg-fuchsia-500 shadow-[0_0_16px_rgba(236,72,153,0.55)] -translate-x-1/2 -translate-y-1/2"
-                style={{ left: knobX, top: ringKnobY }}
-                onPointerDown={onHorizontalDown}
-              />
-              <div
-                className="absolute w-4 h-4 rounded-full border border-cyan-100 bg-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.55)] -translate-x-1/2 -translate-y-1/2"
-                style={{ left: cx - 98, top: cy - 110 + ((VERTICAL_RANGE - verticalAngle) / (VERTICAL_RANGE * 2)) * 110 }}
-                onPointerDown={onVerticalDown}
-              />
-
-              <div className="absolute left-5 right-5 bottom-5" onPointerDown={onZoomDown}>
-                <div className="h-2 rounded-full bg-white/10 relative">
-                  <div className="absolute top-0 left-0 h-full rounded-full bg-amber-300/70" style={{ width: `${((zoom - 1) / 11) * 100}%` }} />
-                  <div
-                    className="absolute top-1/2 w-3 h-3 rounded-full bg-amber-300 border border-amber-100 -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: zoomKnobX }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
-              <div className="rounded border border-white/10 bg-black/40 px-2 py-1 text-center text-slate-300">H {horizontalAngle}deg</div>
-              <div className="rounded border border-white/10 bg-black/40 px-2 py-1 text-center text-slate-300">V {verticalAngle}deg</div>
-              <div className="rounded border border-white/10 bg-black/40 px-2 py-1 text-center text-amber-200">Z {zoom.toFixed(1)}</div>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              <label className="block text-[11px] text-slate-400">
-                Horizontal ({describeHorizontal(horizontalAngle)})
-                <input
-                  type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
-                  value={horizontalAngle}
-                  onChange={(e) => setHorizontalAngle(Number(e.target.value))}
-                  className="mt-1 w-full accent-fuchsia-500"
-                />
-              </label>
-              <label className="block text-[11px] text-slate-400">
-                Vertical ({describeVertical(verticalAngle)})
-                <input
-                  type="range"
-                  min={-60}
-                  max={60}
-                  step={1}
-                  value={verticalAngle}
-                  onChange={(e) => setVerticalAngle(Number(e.target.value))}
-                  className="mt-1 w-full accent-cyan-400"
-                />
-              </label>
-              <label className="block text-[11px] text-slate-400">
-                Zoom ({zoom.toFixed(1)})
-                <input
-                  type="range"
-                  min={1}
-                  max={12}
-                  step={0.1}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="mt-1 w-full accent-amber-300"
-                />
-              </label>
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setHorizontalAngle(normalizeDegrees(horizontalAngle - 15))}
-                className="rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-300"
-              >
-                H -15
-              </button>
-              <button
-                type="button"
-                onClick={() => setHorizontalAngle(normalizeDegrees(horizontalAngle + 15))}
-                className="rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-300"
-              >
-                H +15
-              </button>
-              <button
-                type="button"
-                onClick={resetCamera}
-                className="rounded border border-cyan-400/35 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-200"
-              >
-                Reset Camera
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2">
-            <label className="text-[11px] text-slate-400">
+            <label className="text-[11px] text-zinc-500">
               Seed
               <input
                 type="number"
                 value={seed}
                 onChange={(e) => setSeed(Number(e.target.value))}
-                className="mt-1 w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-slate-100"
+                className="mt-1 w-full rounded border border-white/10 bg-black px-2 py-2 text-zinc-200"
               />
             </label>
           </div>
@@ -853,23 +449,19 @@ export const QwenMultiAnglesPage = () => {
           <button
             onClick={() => void generate()}
             disabled={isGenerating || !uploadedImageName}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 border border-emerald-400/40 bg-emerald-500/15 text-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 border border-white/10 bg-white/[0.06] text-zinc-100 hover:bg-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-            {isGenerating
-              ? 'Generating...'
-              : modelStatus && !modelStatus.ready
-                ? 'Generate + Download Missing Models'
-                : `Generate ${normalizedShotCount} Angle${normalizedShotCount === 1 ? '' : 's'}`}
+            {isGenerating ? 'Generating...' : `Generate ${activeShots.length} Angle${activeShots.length === 1 ? '' : 's'}`}
           </button>
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-black/30 p-4 min-h-[420px]">
+        <section className="rounded-xl border border-white/10 bg-black/30 p-4 min-h-[360px]">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-white">Output</h4>
+            <h4 className="text-sm font-semibold text-zinc-100">Output</h4>
             <button
               onClick={() => setResults([])}
-              className="inline-flex items-center gap-1 text-[11px] text-slate-300 border border-white/10 rounded px-2 py-1"
+              className="inline-flex items-center gap-1 text-[11px] text-zinc-400 border border-white/10 rounded px-2 py-1 hover:text-zinc-100"
             >
               <RefreshCw className="w-3 h-3" />
               Clear
@@ -878,10 +470,8 @@ export const QwenMultiAnglesPage = () => {
 
           {results.length === 0 ? (
             <div
-              className={`h-[360px] rounded-xl border border-dashed flex items-center justify-center px-6 text-center text-sm ${
-                generationError
-                  ? 'border-red-400/30 bg-red-500/5 text-red-200'
-                  : 'border-white/10 text-slate-500'
+              className={`h-[280px] rounded-lg border border-dashed flex items-center justify-center px-6 text-center text-sm ${
+                generationError ? 'border-red-400/30 bg-red-500/5 text-red-200' : 'border-white/10 text-zinc-600'
               }`}
             >
               {generationError || (isGenerating ? 'Running workflow...' : 'No outputs yet')}
@@ -889,13 +479,13 @@ export const QwenMultiAnglesPage = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {results.map((url, idx) => (
-                <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer" className="block group">
+                <button key={`${url}-${idx}`} type="button" onClick={() => setLightboxImage(url)} className="block group text-left">
                   <img
                     src={url}
                     alt={`Result ${idx + 1}`}
-                    className="w-full aspect-square object-cover rounded-lg border border-white/10 group-hover:border-cyan-400/40"
+                    className="w-full aspect-square object-cover rounded-lg border border-white/10 group-hover:border-white/40"
                   />
-                </a>
+                </button>
               ))}
             </div>
           )}
