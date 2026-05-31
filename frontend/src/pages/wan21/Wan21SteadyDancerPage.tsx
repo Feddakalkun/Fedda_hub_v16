@@ -49,6 +49,7 @@ function comfyViewUrl(filename: string | null, type: 'input' | 'output' = 'input
 }
 
 function outputUrl(file: ComfyImage) {
+  if (file.type === 'input') return comfyViewUrl(file.filename, 'input', file.subfolder || '') || '';
   return comfyService.getImageUrl(file);
 }
 
@@ -511,11 +512,27 @@ export function Wan21SteadyDancerPage() {
       if (data.status === 'completed') {
         const images = Array.isArray(data.images) ? data.images as ComfyImage[] : [];
         if (images.length === 0) throw new Error('Z-Image finished without image output');
-        return images;
+        const outputImages = images.filter((image) => image.type === 'output');
+        return outputImages.length > 0 ? outputImages : images;
       }
       if (data.status === 'not_found' && i > 8) throw new Error('Prompt disappeared from Comfy history');
     }
     throw new Error('Timed out waiting for Z-Image output');
+  };
+
+  const importPoseCandidates = async (images: ComfyImage[]) => {
+    const imported: ComfyImage[] = [];
+    for (const image of images.slice(0, 4)) {
+      const res = await fetch(`${BACKEND_API.BASE_URL}/api/media/import-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(image),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.detail || 'Could not import generated image');
+      imported.push({ filename: data.filename, subfolder: '', type: 'input' });
+    }
+    return imported;
   };
 
   const generatePoseImage = async () => {
@@ -549,7 +566,8 @@ export function Wan21SteadyDancerPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.detail || 'Z-Image generation failed');
       const images = await pollPoseImages(String(data.prompt_id));
-      setPoseImages(images);
+      const imported = await importPoseCandidates(images);
+      setPoseImages(imported);
       toast('Character pose image ready for review', 'success');
     } catch (err: any) {
       toast(err.message || 'Z-Image generation failed', 'error');
@@ -559,6 +577,12 @@ export function Wan21SteadyDancerPage() {
   };
 
   const approvePoseImage = async (image: ComfyImage) => {
+    if (image.type === 'input') {
+      setApprovedSubjectFile(image.filename);
+      setSubjectImageFile(image.filename);
+      toast('Generated image is now the Steady Dancer subject', 'success');
+      return;
+    }
     setIsImportingPose(true);
     try {
       const res = await fetch(`${BACKEND_API.BASE_URL}/api/media/import-image`, {
