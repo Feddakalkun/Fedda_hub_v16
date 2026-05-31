@@ -12,6 +12,7 @@ interface WorkflowShellProps {
   canGenerate?: boolean;
   leftClassName?: string;
   outputClassName?: string;
+  hideOutputPane?: boolean;
 }
 
 export const WorkflowShell = ({
@@ -25,9 +26,10 @@ export const WorkflowShell = ({
   canGenerate = true,
   leftClassName = '',
   outputClassName = '',
+  hideOutputPane = false,
 }: WorkflowShellProps) => {
   return (
-    <div className="workflow-shell">
+    <div className={`workflow-shell ${hideOutputPane ? 'workflow-shell-no-output' : ''}`.trim()}>
       <section className={`workflow-control-pane ${leftClassName}`.trim()}>
         <div className="workflow-header">
           <div className="workflow-header-icon">
@@ -59,9 +61,11 @@ export const WorkflowShell = ({
         </div>
       </section>
 
-      <section className={`workflow-output-pane ${outputClassName}`.trim()}>
-        {output}
-      </section>
+      {!hideOutputPane && (
+        <section className={`workflow-output-pane ${outputClassName}`.trim()}>
+          {output}
+        </section>
+      )}
     </div>
   );
 };

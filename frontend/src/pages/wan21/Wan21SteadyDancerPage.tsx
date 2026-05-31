@@ -126,7 +126,7 @@ const UploadDrop = ({
   accept: string;
   label: string;
   filename: string | null;
-  preview?: React.ReactNode;
+  preview?: ReactNode;
   busy: boolean;
   onFile: (file: File) => void;
 }) => {
@@ -168,7 +168,7 @@ const UploadDrop = ({
   );
 };
 
-const SteadyOutputPanel = ({
+const SteadyVideoPreviewStrip = ({
   currentVideo,
   history,
   isGenerating,
@@ -179,61 +179,74 @@ const SteadyOutputPanel = ({
   isGenerating: boolean;
   onSelectVideo: (url: string) => void;
 }) => (
-  <aside className="flex h-full w-[430px] max-w-[40vw] shrink-0 flex-col border-l border-white/10 bg-[#050505]">
-    <div className="border-b border-white/10 px-4 py-3">
-      <h3 className="text-sm font-semibold text-zinc-100">Output</h3>
-      <p className="text-[11px] text-zinc-500">Preview, history and export</p>
-    </div>
-    <div className="border-b border-white/10 p-3">
-      {currentVideo ? (
-        <div className="space-y-2">
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
-            <video src={currentVideo} className="aspect-video w-full object-contain" controls playsInline />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <NeutralButton onClick={() => window.open(currentVideo, '_blank', 'noopener,noreferrer')}>
+  <section className="rounded-xl border border-white/10 bg-[#09090b] p-3">
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <button
+        type="button"
+        onClick={() => currentVideo && window.open(currentVideo, '_blank', 'noopener,noreferrer')}
+        disabled={!currentVideo}
+        className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500 transition hover:text-zinc-200 disabled:pointer-events-none"
+      >
+        <Video className="h-3.5 w-3.5" />
+        Output Preview
+      </button>
+      <div className="flex items-center gap-2">
+        <span className="text-[9px] font-mono text-zinc-600">
+          {isGenerating ? 'Rendering' : 'Recent'} · {history.length}
+        </span>
+        {currentVideo ? (
+          <>
+            <button
+              type="button"
+              onClick={() => window.open(currentVideo, '_blank', 'noopener,noreferrer')}
+              className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-zinc-400 transition hover:text-zinc-100"
+              title="Open output"
+            >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open
-            </NeutralButton>
-            <NeutralButton onClick={() => triggerMediaDownload(currentVideo, 'fedda-steady-dancer.mp4')}>
+            </button>
+            <button
+              type="button"
+              onClick={() => triggerMediaDownload(currentVideo, 'fedda-steady-dancer.mp4')}
+              className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-zinc-400 transition hover:text-zinc-100"
+              title="Download output"
+            >
               <Download className="h-3.5 w-3.5" />
-              Download
-            </NeutralButton>
+            </button>
+          </>
+        ) : null}
+      </div>
+    </div>
+
+    <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+      {currentVideo ? (
+        <button
+          type="button"
+          onClick={() => onSelectVideo(currentVideo)}
+          className="relative h-24 w-40 shrink-0 overflow-hidden rounded-lg border border-white/25 bg-black"
+        >
+          <video src={currentVideo} className="h-full w-full object-cover" muted playsInline />
+          <div className="absolute left-1.5 top-1.5 rounded bg-zinc-100 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider text-black">
+            Selected
           </div>
-        </div>
+        </button>
       ) : (
-        <div className="rounded-xl border border-white/10 bg-black/40 p-6 text-center text-sm text-zinc-600">
-          {isGenerating ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Rendering motion transfer
-            </span>
-          ) : (
-            'No Steady Dancer output yet.'
-          )}
+        <div className="flex h-24 w-40 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/35 text-center text-[11px] text-zinc-700">
+          {isGenerating ? 'Rendering output' : 'No output yet'}
         </div>
       )}
+
+      {history.filter((url) => url !== currentVideo).slice(0, 10).map((url, index) => (
+        <button
+          key={`${url}-${index}`}
+          type="button"
+          onClick={() => onSelectVideo(url)}
+          className="h-24 w-40 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black transition hover:border-white/30"
+        >
+          <video src={url} className="h-full w-full object-cover" muted playsInline />
+        </button>
+      ))}
     </div>
-    <div className="custom-scrollbar flex-1 space-y-2 overflow-y-auto p-3">
-      {history.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-xs text-zinc-700">Waiting for first output</div>
-      ) : (
-        history.slice(0, 20).map((url, index) => (
-          <button
-            key={`${url}-${index}`}
-            type="button"
-            onClick={() => onSelectVideo(url)}
-            className="w-full rounded-lg border border-white/10 bg-black/35 p-2 text-left transition hover:bg-white/[0.05]"
-          >
-            <div className="flex items-center gap-2">
-              <Video className="h-3.5 w-3.5 text-zinc-500" />
-              <span className="truncate text-[11px] text-zinc-300">Output {history.length - index}</span>
-            </div>
-          </button>
-        ))
-      )}
-    </div>
-  </aside>
+  </section>
 );
 
 export function Wan21SteadyDancerPage() {
@@ -659,135 +672,137 @@ export function Wan21SteadyDancerPage() {
       isGenerating={isGenerating}
       canGenerate={canRun}
       leftClassName="bg-[#050505]"
-      outputClassName="bg-[#050505]"
-      output={(
-        <SteadyOutputPanel
+      hideOutputPane
+      output={null}
+    >
+      <div className="mx-auto max-w-7xl space-y-4 px-4 pb-8">
+        <SteadyVideoPreviewStrip
           currentVideo={currentVideo || history[0] || null}
           history={history}
           isGenerating={isGenerating}
           onSelectVideo={setCurrentVideo}
         />
-      )}
-    >
-      <div className="mx-auto max-w-6xl space-y-4 px-4 pb-8">
-        <section className={panel}>
-          <StageHeader
-            step="Stage 1"
-            title="Motion Source"
-            detail="Download a public clip or upload one directly, then select the usable section."
-          />
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_1.2fr]">
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  value={sourceUrl}
-                  onChange={(event) => setSourceUrl(event.target.value)}
-                  placeholder="TikTok, Instagram Reel, YouTube Shorts or direct video URL"
-                  className={inputBase}
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <section className={panel}>
+            <StageHeader
+              step="Stage 1"
+              title="Motion Source"
+              detail="Download or upload a motion clip, then select the usable section."
+            />
+            <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    value={sourceUrl}
+                    onChange={(event) => setSourceUrl(event.target.value)}
+                    placeholder="TikTok, Instagram Reel, YouTube Shorts or direct video URL"
+                    className={inputBase}
+                  />
+                  <NeutralButton onClick={downloadMotion} disabled={!sourceUrl.trim() || isDownloading}>
+                    {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    Download
+                  </NeutralButton>
+                </div>
+                <UploadDrop
+                  accept="video/*"
+                  label="Upload motion video"
+                  filename={motionVideoFile}
+                  busy={uploadingMotion}
+                  onFile={uploadMotion}
                 />
-                <NeutralButton onClick={downloadMotion} disabled={!sourceUrl.trim() || isDownloading}>
-                  {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                  Download
-                </NeutralButton>
+                <div className="grid grid-cols-2 gap-2">
+                  <NeutralButton onClick={trimMotion} disabled={!motionVideoFile || isTrimming || endTime <= startTime}>
+                    {isTrimming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scissors className="h-3.5 w-3.5" />}
+                    Trim Clip
+                  </NeutralButton>
+                  <NeutralButton onClick={captureFrame} disabled={!motionVideoFile || isCapturing}>
+                    {isCapturing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                    Capture Start
+                  </NeutralButton>
+                </div>
               </div>
-              <UploadDrop
-                accept="video/*"
-                label="Upload motion video"
-                filename={motionVideoFile}
-                busy={uploadingMotion}
-                onFile={uploadMotion}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <NeutralButton onClick={trimMotion} disabled={!motionVideoFile || isTrimming || endTime <= startTime}>
-                  {isTrimming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scissors className="h-3.5 w-3.5" />}
-                  Trim Clip
-                </NeutralButton>
-                <NeutralButton onClick={captureFrame} disabled={!motionVideoFile || isCapturing}>
-                  {isCapturing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                  Capture Start
-                </NeutralButton>
+
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
+                  {sourceVideoUrl ? (
+                    <video
+                      ref={videoRef}
+                      src={sourceVideoUrl}
+                      className="aspect-video w-full object-contain"
+                      controls
+                      playsInline
+                      onLoadedMetadata={onVideoLoaded}
+                      onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+                    />
+                  ) : (
+                    <div className="flex aspect-video items-center justify-center text-sm text-zinc-700">No motion source loaded</div>
+                  )}
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <div
+                    ref={trackRef}
+                    className="relative h-8 cursor-pointer rounded-full bg-white/[0.06]"
+                    onMouseDown={(event) => {
+                      const seconds = getSeconds(event);
+                      if (Math.abs(seconds - startTime) < Math.abs(seconds - endTime)) dragging.current = 'start';
+                      else dragging.current = 'end';
+                    }}
+                  >
+                    <div className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-white/15" style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }} />
+                    <div className="absolute top-0 h-8 w-px bg-white/60" style={{ left: `${currentPct}%` }} />
+                    <button type="button" onMouseDown={() => { dragging.current = 'start'; }} className="absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-200" style={{ left: `${startPct}%` }} />
+                    <button type="button" onMouseDown={() => { dragging.current = 'end'; }} className="absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-200" style={{ left: `${endPct}%` }} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
+                    <span>Start {fmtTime(startTime)}</span>
+                    <span>Clip {clipLength.toFixed(1)}s</span>
+                    <span>End {fmtTime(endTime)}</span>
+                  </div>
+                </div>
+                {trimmedMotionFile ? <p className="text-[11px] text-zinc-500">Trimmed reference ready: {trimmedMotionFile}</p> : null}
               </div>
             </div>
+          </section>
 
-            <div className="space-y-3">
+          <section className={panel}>
+            <StageHeader
+              step="Stage 2"
+              title="Pose Frame"
+              detail="Capture the start pose and keep direct subject upload available."
+            />
+            <div className="grid gap-3 sm:grid-cols-[160px_1fr] xl:grid-cols-1">
               <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
-                {sourceVideoUrl ? (
-                  <video
-                    ref={videoRef}
-                    src={sourceVideoUrl}
-                    className="aspect-video w-full object-contain"
-                    controls
-                    playsInline
-                    onLoadedMetadata={onVideoLoaded}
-                    onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-                  />
+                {capturedFrameUrl ? (
+                  <img src={capturedFrameUrl} alt="Captured pose frame" className="aspect-[3/4] w-full object-contain" />
                 ) : (
-                  <div className="flex aspect-video items-center justify-center text-sm text-zinc-700">No motion source loaded</div>
+                  <div className="flex aspect-[3/4] items-center justify-center px-4 text-center text-sm text-zinc-700">Capture a frame from the motion clip</div>
                 )}
               </div>
-              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                <div
-                  ref={trackRef}
-                  className="relative h-8 cursor-pointer rounded-full bg-white/[0.06]"
-                  onMouseDown={(event) => {
-                    const seconds = getSeconds(event);
-                    if (Math.abs(seconds - startTime) < Math.abs(seconds - endTime)) dragging.current = 'start';
-                    else dragging.current = 'end';
-                  }}
-                >
-                  <div className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-white/15" style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }} />
-                  <div className="absolute top-0 h-8 w-px bg-white/60" style={{ left: `${currentPct}%` }} />
-                  <button type="button" onMouseDown={() => { dragging.current = 'start'; }} className="absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-200" style={{ left: `${startPct}%` }} />
-                  <button type="button" onMouseDown={() => { dragging.current = 'end'; }} className="absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-200" style={{ left: `${endPct}%` }} />
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
-                  <span>Start {fmtTime(startTime)}</span>
-                  <span>Clip {clipLength.toFixed(1)}s</span>
-                  <span>End {fmtTime(endTime)}</span>
+              <div className="space-y-3">
+                <Field label="Final subject image">
+                  <UploadDrop
+                    accept="image/*"
+                    label="Direct subject upload"
+                    filename={finalSubjectFile}
+                    busy={uploadingSubject}
+                    onFile={uploadSubject}
+                    preview={subjectPreviewUrl ? <img src={subjectPreviewUrl} alt="Subject" className="max-h-40 w-full object-contain" /> : undefined}
+                  />
+                </Field>
+                <div className="rounded-xl border border-white/10 bg-black/25 p-3 text-xs leading-relaxed text-zinc-500">
+                  Direct upload still works. The generated pose image only takes over after approval.
+                  {approvedSubjectFile ? (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-zinc-300">
+                      <Check className="h-3.5 w-3.5" />
+                      Approved generated start image
+                    </div>
+                  ) : null}
                 </div>
               </div>
-              {trimmedMotionFile ? <p className="text-[11px] text-zinc-500">Trimmed reference ready: {trimmedMotionFile}</p> : null}
             </div>
-          </div>
-        </section>
-
-        <section className={panel}>
-          <StageHeader
-            step="Stage 2"
-            title="Pose Frame"
-            detail="This captured start pose drives the Z-Image ControlNet pass."
-          />
-          <div className="grid gap-4 md:grid-cols-[260px_1fr]">
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
-              {capturedFrameUrl ? (
-                <img src={capturedFrameUrl} alt="Captured pose frame" className="aspect-[3/4] w-full object-contain" />
-              ) : (
-                <div className="flex aspect-[3/4] items-center justify-center px-6 text-center text-sm text-zinc-700">Capture a frame from the motion clip</div>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Final subject image" className="sm:col-span-1">
-                <UploadDrop
-                  accept="image/*"
-                  label="Direct subject upload"
-                  filename={finalSubjectFile}
-                  busy={uploadingSubject}
-                  onFile={uploadSubject}
-                  preview={subjectPreviewUrl ? <img src={subjectPreviewUrl} alt="Subject" className="max-h-44 w-full object-contain" /> : undefined}
-                />
-              </Field>
-              <div className="sm:col-span-2 rounded-xl border border-white/10 bg-black/25 p-3 text-sm text-zinc-500">
-                Direct upload still works exactly like the old path. The new path only takes over after you approve a generated character pose image.
-                {approvedSubjectFile ? (
-                  <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-zinc-300">
-                    <Check className="h-3.5 w-3.5" />
-                    Approved generated start image
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
         <section className={panel}>
           <StageHeader

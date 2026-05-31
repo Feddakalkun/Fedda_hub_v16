@@ -228,6 +228,10 @@ body {
   background: #07080d;
 }
 
+.workflow-shell-no-output {
+  grid-template-columns: 1fr;
+}
+
 .workflow-control-pane {
   min-width: 0;
   display: flex;
