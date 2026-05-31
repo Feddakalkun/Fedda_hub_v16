@@ -354,6 +354,9 @@ class WorkflowService:
         if not is_api:
             workflow = self.convert_ui_to_api(workflow)
 
+        if workflow_id == "qwen-multi-angles":
+            self._trim_qwen_multi_angle_outputs(workflow, user_params)
+
         # 3. Auto-inject Hugging Face token into downloader nodes when configured
         hf_token = str(self.load_runtime_settings().get("hf_token") or "").strip()
         if hf_token:
@@ -366,6 +369,19 @@ class WorkflowService:
                 inputs["hf_token"] = hf_token
             
         return workflow
+
+    def _trim_qwen_multi_angle_outputs(self, workflow: dict, user_params: Dict[str, Any]) -> None:
+        """Keep only the requested Qwen multi-angle output branches active."""
+        try:
+            shot_count = int(user_params.get("shot_count") or 6)
+        except Exception:
+            shot_count = 6
+        shot_count = max(1, min(6, shot_count))
+        save_nodes = ["259", "260", "261", "262", "263", "264"]
+        for node_id in save_nodes[shot_count:]:
+            if node_id in workflow:
+                workflow.pop(node_id, None)
+        print(f"  [Qwen Multiangle] Active output shots: {shot_count}")
 
     def _sanitize_flux2klein_workflow(self, workflow: dict) -> None:
         """

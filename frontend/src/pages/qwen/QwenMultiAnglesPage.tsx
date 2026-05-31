@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { DragEvent as ReactDragEvent } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Expand, Loader2, Minus, Plus, RefreshCw, Upload } from 'lucide-react';
 import { BACKEND_API } from '../../config/api';
 import { useToast } from '../../components/ui/Toast';
+import { Lightbox } from '../../components/ui/Lightbox';
+import { usePersistentState } from '../../hooks/usePersistentState';
 
 const WHEEL_SIZE = 260;
 const WHEEL_RADIUS_X = 92;
@@ -149,7 +151,7 @@ export const QwenMultiAnglesPage = () => {
   const [zPresetId, setZPresetId] = useState('medium');
   const [defaultPrompts, setDefaultPrompts] = useState(false);
   const [cameraView, setCameraView] = useState(false);
-  const [generationMode, setGenerationMode] = useState<'fast' | 'standard'>('fast');
+  const [shotCount, setShotCount] = usePersistentState('qwen_multiangle_shot_count', 1);
   const [seed, setSeed] = useState(-1);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -161,11 +163,16 @@ export const QwenMultiAnglesPage = () => {
   const [uploadedPreview, setUploadedPreview] = useState('');
   const [generationError, setGenerationError] = useState('');
   const [results, setResults] = useState<string[]>([]);
-  const workflowId = generationMode === 'fast' ? 'qwen-multi-angles-fast' : 'qwen-multi-angles';
-  const shotPlan = useMemo(
+  const [history, setHistory] = usePersistentState<string[]>('qwen_multiangle_history', []);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const normalizedShotCount = clamp(Math.round(Number(shotCount) || 1), 1, 6);
+  const workflowId = normalizedShotCount === 1 ? 'qwen-multi-angles-fast' : 'qwen-multi-angles';
+  const allShotPlan = useMemo(
     () => buildSixShotPlan(horizontalAngle, verticalAngle, zoom),
     [horizontalAngle, verticalAngle, zoom],
   );
+  const shotPlan = allShotPlan.slice(0, normalizedShotCount);
+  const previewItems = [...results, ...history.filter((url) => !results.includes(url))].slice(0, 12);
 
   useEffect(() => {
     setHPresetId(nearestPresetId(horizontalAngle, H_PRESETS, 5));
@@ -334,7 +341,7 @@ export const QwenMultiAnglesPage = () => {
   };
 
   const pollResults = async (promptId: string) => {
-    const expectedCount = generationMode === 'fast' ? 1 : 6;
+    const expectedCount = normalizedShotCount;
     const started = Date.now();
     while (Date.now() - started < 240_000) {
       const res = await fetch(`${BACKEND_API.BASE_URL}/api/generate/status/${encodeURIComponent(promptId)}`);
@@ -357,7 +364,12 @@ export const QwenMultiAnglesPage = () => {
         if (urls.length < expectedCount) {
           toast(`Workflow returned ${urls.length} of ${expectedCount} expected outputs.`, 'info');
         }
-        setResults(urls.slice(0, expectedCount));
+        const nextResults = urls.slice(0, expectedCount);
+        setResults(nextResults);
+        setHistory((prev) => {
+          const merged = [...nextResults, ...prev.filter((url) => !nextResults.includes(url))];
+          return merged.slice(0, 40);
+        });
         return;
       }
       if (state === 'not_found' || state === 'pending' || state === 'running') {
@@ -366,7 +378,7 @@ export const QwenMultiAnglesPage = () => {
       }
       throw new Error(`Unexpected status: ${state}`);
     }
-    throw new Error(`Generation timed out (${generationMode === 'fast' ? 'Fast' : 'Standard'} mode)`);
+    throw new Error(`Generation timed out (${expectedCount} shot${expectedCount === 1 ? '' : 's'})`);
   };
 
   const generate = async () => {
@@ -379,19 +391,20 @@ export const QwenMultiAnglesPage = () => {
     setResults([]);
     try {
       const chosenSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_000) : seed;
-      const isStandard = generationMode === 'standard';
+      const isMultiShot = normalizedShotCount > 1;
       const payload = {
         workflow_id: workflowId,
         params: {
           image: uploadedImageName,
-          horizontal_angle: isStandard
-            ? shotPlan.map((shot) => toWorkflowHorizontalAngle(shot.h))
+          horizontal_angle: isMultiShot
+            ? allShotPlan.map((shot) => toWorkflowHorizontalAngle(shot.h))
             : toWorkflowHorizontalAngle(horizontalAngle),
-          vertical_angle: isStandard ? shotPlan.map((shot) => shot.v) : verticalAngle,
-          zoom: isStandard ? shotPlan.map((shot) => shot.z) : zoom,
-          default_prompts: isStandard ? shotPlan.map(() => defaultPrompts) : defaultPrompts,
-          camera_view: isStandard ? shotPlan.map(() => cameraView) : cameraView,
+          vertical_angle: isMultiShot ? allShotPlan.map((shot) => shot.v) : verticalAngle,
+          zoom: isMultiShot ? allShotPlan.map((shot) => shot.z) : zoom,
+          default_prompts: isMultiShot ? allShotPlan.map(() => defaultPrompts) : defaultPrompts,
+          camera_view: isMultiShot ? allShotPlan.map(() => cameraView) : cameraView,
           seed: chosenSeed,
+          shot_count: normalizedShotCount,
         },
       };
       const res = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.GENERATE}`, {
@@ -407,7 +420,7 @@ export const QwenMultiAnglesPage = () => {
         toast('Model downloader node is running. First run can take a while.', 'info');
       }
       await pollResults(String(data.prompt_id));
-      toast(`Multi-angle generation complete (${generationMode === 'fast' ? 'Fast' : 'Standard'})`, 'success');
+      toast(`Multi-angle generation complete (${normalizedShotCount} shot${normalizedShotCount === 1 ? '' : 's'})`, 'success');
     } catch (err: any) {
       const message = err?.message || 'Generation failed';
       setGenerationError(message);
@@ -426,82 +439,140 @@ export const QwenMultiAnglesPage = () => {
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar px-6 py-5">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5">
-        <section className="rounded-2xl border border-amber-300/35 bg-[#141018] p-4 space-y-4 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]">
-          <div>
-            <h3 className="text-sm font-semibold tracking-wide text-amber-100">Qwen Multiangle Camera</h3>
-            <p className="text-xs text-slate-400 mt-1">Original-style camera control with X, Y and Zoom.</p>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-            <label className="text-[11px] uppercase tracking-[0.12em] text-slate-400 block mb-2">Image</label>
-            <div
-              onDragOver={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                setIsDragOver(true);
-              }}
-              onDragLeave={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                setIsDragOver(false);
-              }}
-              onDrop={(ev) => void handleFileDrop(ev)}
-              className={`w-full rounded-lg border border-dashed p-3 transition-colors ${
-                isDragOver
-                  ? 'border-cyan-300 bg-cyan-500/15'
-                  : 'border-cyan-400/35 bg-cyan-500/5'
-              }`}
-            >
-              <label className="w-full cursor-pointer flex items-center justify-center gap-2 text-sm text-cyan-200 hover:text-cyan-100">
-                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {isUploading ? 'Uploading...' : 'Drop Image Here or Click Upload'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void uploadReference(file);
-                  }}
-                />
-              </label>
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold tracking-wide text-amber-100">Qwen Multiangle Camera</h3>
+              <p className="text-xs text-slate-400 mt-1">Recent Qwen outputs and live shot checks.</p>
             </div>
-            {uploadedImageName && <p className="mt-2 text-[11px] text-emerald-300">Loaded: {uploadedImageName}</p>}
+            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+              {previewItems.length} previews
+            </span>
+          </div>
+          {previewItems.length === 0 ? (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-[11px] text-white/40">
+              Generate angles to fill this preview bar.
+            </div>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+              {previewItems.map((url, idx) => (
+                <button
+                  key={`${url}-${idx}`}
+                  type="button"
+                  onClick={() => setLightboxImage(url)}
+                  className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-black/40 hover:border-cyan-300/50"
+                >
+                  <img src={url} alt={`Preview ${idx + 1}`} className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/30" />
+                  <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5 text-white/80 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Expand className="h-2.5 w-2.5" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/10 bg-[#141018] p-4 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]">
+
+          <div className="grid gap-3 lg:grid-cols-[220px_1fr]">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+              {uploadedPreview ? (
+                <img src={uploadedPreview} alt="Reference" className="h-52 w-full object-cover" />
+              ) : (
+                <div className="flex h-52 items-center justify-center text-[11px] text-slate-500">No reference loaded</div>
+              )}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+              <label className="text-[11px] uppercase tracking-[0.12em] text-slate-400 block mb-2">Reference Image</label>
+              <div
+                onDragOver={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  setIsDragOver(false);
+                }}
+                onDrop={(ev) => void handleFileDrop(ev)}
+                className={`flex min-h-28 items-center justify-center rounded-lg border border-dashed p-3 transition-colors ${
+                  isDragOver
+                    ? 'border-cyan-300 bg-cyan-500/15'
+                    : 'border-cyan-400/35 bg-cyan-500/5'
+                }`}
+              >
+                <label className="w-full cursor-pointer flex items-center justify-center gap-2 text-sm text-cyan-200 hover:text-cyan-100">
+                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {isUploading ? 'Uploading...' : 'Drop Image Here or Click Upload'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void uploadReference(file);
+                    }}
+                  />
+                </label>
+              </div>
+              {uploadedImageName && <p className="mt-2 text-[11px] text-emerald-300">Loaded: {uploadedImageName}</p>}
+            </div>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-            <label className="text-[11px] uppercase tracking-[0.12em] text-slate-400 block mb-1">Render Mode</label>
-            <select
-              value={generationMode}
-              onChange={(e) => setGenerationMode(e.target.value === 'standard' ? 'standard' : 'fast')}
-              className="w-full rounded border border-white/10 bg-black/50 px-2 py-2 text-sm text-slate-100"
-            >
-              <option value="fast">Fast (1 output, quickest)</option>
-              <option value="standard">Standard (6 outputs, slower)</option>
-            </select>
-            <p className="mt-2 text-[10px] text-slate-500">
-              Fast uses the selected camera. Standard renders a six-shot orbit from the selected camera.
-            </p>
-          </div>
-
-          {generationMode === 'standard' && (
-            <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/5 p-3">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200">
-                Six-Shot Plan
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">Shot Count</div>
+                <p className="mt-1 text-[10px] text-slate-500">Start with one angle. Add only the shots you want to render.</p>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {shotPlan.map((shot) => (
-                  <div key={shot.label} className="rounded border border-white/10 bg-black/25 px-2 py-1.5">
-                    <div className="text-[10px] text-slate-200">{shot.label}</div>
-                    <div className="mt-0.5 text-[9px] text-slate-500">
-                      H {normalizeDegrees(shot.h)} / V {shot.v} / Z {shot.z.toFixed(1)}
-                    </div>
-                  </div>
-                ))}
+              <div className="inline-flex items-center overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                <button
+                  type="button"
+                  onClick={() => setShotCount((value) => clamp(Math.round(Number(value) || 1) - 1, 1, 6))}
+                  className="inline-flex h-9 w-9 items-center justify-center text-slate-300 hover:bg-white/10 disabled:opacity-40"
+                  disabled={normalizedShotCount <= 1}
+                  title="Remove one shot"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <div className="w-16 text-center text-sm font-semibold text-white">{normalizedShotCount}</div>
+                <button
+                  type="button"
+                  onClick={() => setShotCount((value) => clamp(Math.round(Number(value) || 1) + 1, 1, 6))}
+                  className="inline-flex h-9 w-9 items-center justify-center text-slate-300 hover:bg-white/10 disabled:opacity-40"
+                  disabled={normalizedShotCount >= 6}
+                  title="Add one shot"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          )}
+
+            <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              {shotPlan.map((shot, idx) => (
+                <div key={shot.label} className="rounded border border-cyan-400/15 bg-cyan-500/5 px-2 py-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[10px] text-slate-200">{idx + 1}. {shot.label}</div>
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShotCount(idx)}
+                        className="text-[9px] uppercase tracking-[0.12em] text-slate-500 hover:text-red-200"
+                      >
+                        remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-[9px] text-slate-500">
+                    H {normalizeDegrees(shot.h)} / V {shot.v} / Z {shot.z.toFixed(1)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div
             className={`rounded-xl border p-3 ${
@@ -789,13 +860,11 @@ export const QwenMultiAnglesPage = () => {
               ? 'Generating...'
               : modelStatus && !modelStatus.ready
                 ? 'Generate + Download Missing Models'
-                : generationMode === 'standard'
-                  ? 'Generate 6 Angles'
-                  : 'Generate Angle'}
+                : `Generate ${normalizedShotCount} Angle${normalizedShotCount === 1 ? '' : 's'}`}
           </button>
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-black/30 p-4 min-h-[520px]">
+        <section className="rounded-2xl border border-white/10 bg-black/30 p-4 min-h-[420px]">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-semibold text-white">Output</h4>
             <button
@@ -806,13 +875,6 @@ export const QwenMultiAnglesPage = () => {
               Clear
             </button>
           </div>
-
-          {uploadedPreview && (
-            <div className="mb-4">
-              <p className="text-[11px] text-slate-400 mb-2">Reference</p>
-              <img src={uploadedPreview} alt="Reference" className="w-44 h-44 object-cover rounded-lg border border-white/10" />
-            </div>
-          )}
 
           {results.length === 0 ? (
             <div
@@ -839,6 +901,7 @@ export const QwenMultiAnglesPage = () => {
           )}
         </section>
       </div>
+      {lightboxImage && <Lightbox imageUrl={lightboxImage} onClose={() => setLightboxImage(null)} />}
     </div>
   );
 };
