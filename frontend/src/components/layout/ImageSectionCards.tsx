@@ -1,4 +1,4 @@
-﻿import { ArrowLeft, Box, Camera, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 interface ImageSectionCardsProps {
   onSelect: (tab: string) => void;
@@ -6,21 +6,51 @@ interface ImageSectionCardsProps {
 }
 
 const WORKFLOWS = [
-  { tab: 'z-image-txt2img', label: 'Z-Image Txt2Img', description: 'Fast core text-to-image generation.', Icon: Sparkles },
-  { tab: 'z-image-dual-lora', label: 'Z-Image Dual LoRA', description: 'Two-LoRA character/detail workflow.', Icon: Box },
-  { tab: 'flux-txt2img', label: 'FLUX2-KLEIN', description: 'FLUX2-KLEIN 9B image generation.', Icon: Wand2 },
-  { tab: 'qwen-txt2img', label: 'Qwen Txt2Img', description: 'Qwen image generation workspace.', Icon: Sparkles },
-  { tab: 'qwen-image-ref', label: 'Qwen Reference', description: 'Image-reference generation and edits.', Icon: Camera },
-  { tab: 'qwen-multi-angle', label: 'Qwen Multi Angle', description: 'Generate angle variants from one input.', Icon: Camera },
+  {
+    tab: 'z-image-txt2img',
+    label: 'Z-Image Txt2Img',
+    description: 'Fast core text-to-image generation.',
+    image: '/cards/deep-teal/z-image-txt2img.jpg',
+  },
+  {
+    tab: 'z-image-dual-lora',
+    label: 'Z-Image Dual LoRA',
+    description: 'Two-LoRA character/detail workflow.',
+    image: '/cards/deep-teal/z-image-dual-lora.jpg',
+  },
+  {
+    tab: 'flux-txt2img',
+    label: 'FLUX2-KLEIN',
+    description: 'FLUX2-KLEIN 9B image generation.',
+    image: '/cards/deep-teal/flux2-klein.jpg',
+  },
+  {
+    tab: 'qwen-txt2img',
+    label: 'Qwen Txt2Img',
+    description: 'Qwen image generation workspace.',
+    image: '/cards/deep-teal/qwen-txt2img.jpg',
+  },
+  {
+    tab: 'qwen-image-ref',
+    label: 'Qwen Reference',
+    description: 'Image-reference generation and edits.',
+    image: '/cards/deep-teal/qwen-reference.jpg',
+  },
+  {
+    tab: 'qwen-multi-angle',
+    label: 'Qwen Multi Angle',
+    description: 'Generate angle variants from one input.',
+    image: '/cards/deep-teal/qwen-multi-angle.jpg',
+  },
 ];
 
 export const ImageSectionCards = ({ onSelect, onBack }: ImageSectionCardsProps) => {
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar bg-[#07080d] px-8 py-8">
+    <div className="h-full overflow-y-auto custom-scrollbar bg-[#050908] px-8 py-8">
       <div className="mx-auto max-w-[1400px] space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="v14-kicker text-white/45">Image Studio</p>
+            <p className="v14-kicker text-teal-100/45">Image Studio</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white">Choose an image workflow</h1>
           </div>
           {onBack && (
@@ -31,17 +61,22 @@ export const ImageSectionCards = ({ onSelect, onBack }: ImageSectionCardsProps) 
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {WORKFLOWS.map(({ tab, label, description, Icon }) => (
+          {WORKFLOWS.map(({ tab, label, description, image }) => (
             <button
               key={tab}
               onClick={() => onSelect(tab)}
-              className="group rounded-xl border border-white/10 bg-[#0d0f16] p-5 text-left transition hover:border-white/20 hover:bg-[#11141d]"
+              className="group relative min-h-[310px] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] text-left transition hover:-translate-y-0.5 hover:border-teal-100/35"
             >
-              <div className="mb-6 flex h-28 items-center justify-center rounded-lg border border-dashed border-white/10 bg-white/[0.02] text-white/25 group-hover:text-white/60">
-                <Icon className="h-8 w-8" />
+              <img
+                src={image}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover opacity-95 transition duration-500 group-hover:scale-[1.03]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-5">
+                <h2 className="text-lg font-semibold text-white">{label}</h2>
+                <p className="mt-2 max-w-md text-sm leading-5 text-teal-50/65">{description}</p>
               </div>
-              <h2 className="text-base font-semibold text-white">{label}</h2>
-              <p className="mt-2 text-sm leading-5 text-slate-500">{description}</p>
             </button>
           ))}
         </div>
