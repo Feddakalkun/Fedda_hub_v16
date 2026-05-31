@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { DragEvent as ReactDragEvent } from 'react';
-import { Camera, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { BACKEND_API } from '../../config/api';
 import { useToast } from '../../components/ui/Toast';
 
@@ -15,6 +15,21 @@ type Preset = {
   id: string;
   label: string;
   value: number;
+};
+
+type WorkflowModelFile = {
+  filename: string;
+  folder: string;
+  exists: boolean;
+  size_bytes?: number;
+  node_title?: string;
+};
+
+type WorkflowModelStatus = {
+  ready: boolean;
+  total: number;
+  missing_count: number;
+  files: WorkflowModelFile[];
 };
 
 const H_PRESETS: Preset[] = [
@@ -89,6 +104,19 @@ function toWorkflowHorizontalAngle(angle: number): number {
   return normalized < 0 ? normalized + 360 : normalized;
 }
 
+function formatBytes(value?: number): string {
+  const bytes = Number(value ?? 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
 export const QwenMultiAnglesPage = () => {
   const { toast } = useToast();
   const wheelRef = useRef<HTMLDivElement | null>(null);
@@ -106,9 +134,13 @@ export const QwenMultiAnglesPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCheckingModels, setIsCheckingModels] = useState(false);
+  const [modelStatus, setModelStatus] = useState<WorkflowModelStatus | null>(null);
+  const [modelStatusError, setModelStatusError] = useState('');
   const [uploadedImageName, setUploadedImageName] = useState('');
   const [uploadedPreview, setUploadedPreview] = useState('');
   const [results, setResults] = useState<string[]>([]);
+  const workflowId = generationMode === 'fast' ? 'qwen-multi-angles-fast' : 'qwen-multi-angles';
 
   useEffect(() => {
     setHPresetId(nearestPresetId(horizontalAngle, H_PRESETS, 5));
@@ -118,6 +150,35 @@ export const QwenMultiAnglesPage = () => {
   useEffect(() => {
     setZPresetId(nearestPresetId(zoom, Z_PRESETS, 1));
   }, [zoom]);
+
+  const refreshModelStatus = async () => {
+    setIsCheckingModels(true);
+    setModelStatusError('');
+    try {
+      const res = await fetch(
+        `${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.WORKFLOW_MODEL_STATUS}/${encodeURIComponent(workflowId)}`,
+      );
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.detail || data?.error || 'Could not check workflow models');
+      }
+      setModelStatus({
+        ready: Boolean(data.ready),
+        total: Number(data.total ?? 0),
+        missing_count: Number(data.missing_count ?? 0),
+        files: Array.isArray(data.files) ? data.files : [],
+      });
+    } catch (err: any) {
+      setModelStatus(null);
+      setModelStatusError(err?.message || 'Could not check workflow models');
+    } finally {
+      setIsCheckingModels(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshModelStatus();
+  }, [workflowId]);
 
   const promptText = useMemo(() => {
     const hLabel = labelFromPresetId(hPresetId, H_PRESETS, `h-${horizontalAngle}`);
@@ -285,7 +346,7 @@ export const QwenMultiAnglesPage = () => {
     try {
       const chosenSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_000) : seed;
       const payload = {
-        workflow_id: generationMode === 'fast' ? 'qwen-multi-angles-fast' : 'qwen-multi-angles',
+        workflow_id: workflowId,
         params: {
           image: uploadedImageName,
           horizontal_angle: toWorkflowHorizontalAngle(horizontalAngle),
@@ -304,6 +365,9 @@ export const QwenMultiAnglesPage = () => {
       const data = await res.json();
       if (!res.ok || !data?.success || !data?.prompt_id) {
         throw new Error(data?.detail || data?.error || 'Failed to start generation');
+      }
+      if (modelStatus && !modelStatus.ready) {
+        toast('Model downloader node is running. First run can take a while.', 'info');
       }
       await pollResults(String(data.prompt_id));
       toast(`Multi-angle generation complete (${generationMode === 'fast' ? 'Fast' : 'Standard'})`, 'success');
@@ -378,8 +442,74 @@ export const QwenMultiAnglesPage = () => {
               <option value="standard">Standard (6 outputs, slower)</option>
             </select>
             <p className="mt-2 text-[10px] text-slate-500">
-              First run after ComfyUI startup is slower due model warmup.
+              Fast and Standard use the same Qwen model pack; Standard produces six angles.
             </p>
+          </div>
+
+          <div
+            className={`rounded-xl border p-3 ${
+              modelStatus?.ready
+                ? 'border-emerald-400/30 bg-emerald-500/10'
+                : 'border-amber-300/30 bg-amber-500/10'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                {modelStatus?.ready ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                ) : (
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                )}
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                    Model Pack
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {modelStatusError
+                      ? modelStatusError
+                      : modelStatus
+                        ? modelStatus.ready
+                          ? `${modelStatus.total} required files found.`
+                          : `${modelStatus.missing_count} of ${modelStatus.total} files missing. The Comfy downloader node will fetch them on first run.`
+                        : isCheckingModels
+                          ? 'Checking workflow model files...'
+                          : 'Model status not checked yet.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshModelStatus()}
+                disabled={isCheckingModels}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/10 bg-black/30 text-slate-300 hover:text-white disabled:opacity-50"
+                title="Refresh model status"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isCheckingModels ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {modelStatus?.files?.length ? (
+              <div className="mt-3 max-h-36 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
+                {modelStatus.files.map((file) => (
+                  <div
+                    key={`${file.folder}/${file.filename}`}
+                    className="grid grid-cols-[1fr_auto] gap-2 rounded border border-white/10 bg-black/25 px-2 py-1.5 text-[10px]"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-slate-200" title={file.filename}>
+                        {file.filename}
+                      </div>
+                      <div className="truncate text-slate-500">
+                        {file.folder}{file.node_title ? ` - ${file.node_title}` : ''}
+                      </div>
+                    </div>
+                    <div className={file.exists ? 'text-emerald-300' : 'text-amber-300'}>
+                      {file.exists ? `FOUND ${formatBytes(file.size_bytes)}`.trim() : 'MISSING'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-xl border border-fuchsia-500/35 bg-[#0d0b12] p-3">
@@ -598,7 +728,11 @@ export const QwenMultiAnglesPage = () => {
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 border border-emerald-400/40 bg-emerald-500/15 text-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-            {isGenerating ? 'Generating...' : 'Generate Angle'}
+            {isGenerating
+              ? 'Generating...'
+              : modelStatus && !modelStatus.ready
+                ? 'Generate + Download Missing Models'
+                : 'Generate Multi Angle'}
           </button>
         </section>
 

@@ -1741,7 +1741,7 @@ async def get_workflow_node_map(workflow_id: str):
         path = workflow_service.get_workflow_path(mapping.get("filename", ""))
         if not path:
             raise HTTPException(status_code=404, detail="Workflow file not found")
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             workflow = json.load(f)
         node_map = {}
         for node_id, node in workflow.items():
@@ -1751,6 +1751,87 @@ async def get_workflow_node_map(workflow_id: str):
             title = node.get("_meta", {}).get("title") or class_type
             node_map[node_id] = {"name": title, "classType": class_type}
         return {"success": True, "node_map": node_map}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _filename_from_download_line(parts: List[str]) -> str:
+    if len(parts) >= 3 and parts[2].strip():
+        return Path(parts[2].strip()).name
+    url_path = parts[0].split("?", 1)[0].rstrip("/")
+    return Path(url_path).name
+
+
+def _parse_workflow_download_links(workflow: Dict[str, Any]) -> List[Dict[str, Any]]:
+    files: List[Dict[str, Any]] = []
+    seen = set()
+
+    for node_id, node in workflow.items():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs") or {}
+        raw_links = str(inputs.get("download_links") or "").strip()
+        if not raw_links:
+            continue
+
+        node_title = (node.get("_meta") or {}).get("title") or node.get("class_type") or str(node_id)
+        for line in raw_links.splitlines():
+            clean = line.strip()
+            if not clean or clean.startswith("#"):
+                continue
+            parts = clean.split()
+            if len(parts) < 2:
+                continue
+            url = parts[0].strip()
+            folder = parts[1].strip().replace("\\", "/").strip("/")
+            filename = _filename_from_download_line(parts)
+            if not url.startswith(("http://", "https://")) or not folder or not filename:
+                continue
+            key = (folder.lower(), filename.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            target = ROOT_DIR / "ComfyUI" / "models" / folder / filename
+            exists = target.exists() and target.is_file() and target.stat().st_size > 10_000
+            files.append({
+                "node_id": str(node_id),
+                "node_title": str(node_title),
+                "url": url,
+                "folder": folder,
+                "filename": filename,
+                "path": str(target),
+                "exists": exists,
+                "size_bytes": target.stat().st_size if exists else 0,
+            })
+    return files
+
+
+@app.get("/api/workflow/model-status/{workflow_id}")
+async def get_workflow_model_status(workflow_id: str):
+    """Expose model downloader requirements embedded in a Comfy workflow."""
+    try:
+        mappings = workflow_service.load_mapping()
+        if workflow_id not in mappings:
+            raise HTTPException(status_code=404, detail=f"Unknown workflow '{workflow_id}'")
+        mapping = mappings[workflow_id]
+        path = workflow_service.get_workflow_path(mapping.get("filename", ""))
+        if not path:
+            raise HTTPException(status_code=404, detail="Workflow file not found")
+        with open(path, "r", encoding="utf-8-sig") as f:
+            workflow = json.load(f)
+        files = _parse_workflow_download_links(workflow)
+        missing = [f for f in files if not f.get("exists")]
+        return {
+            "success": True,
+            "workflow_id": workflow_id,
+            "name": mapping.get("name", workflow_id),
+            "ready": len(missing) == 0,
+            "total": len(files),
+            "missing_count": len(missing),
+            "files": files,
+        }
     except HTTPException:
         raise
     except Exception as e:

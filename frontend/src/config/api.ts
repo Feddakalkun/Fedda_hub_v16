@@ -74,6 +74,7 @@ export const BACKEND_API = {
         OLLAMA_CAPTION: '/api/ollama/caption',
         HARDWARE_STATS: '/api/hardware/stats',
         WORKFLOW_LIST: '/api/workflow/list',
+        WORKFLOW_MODEL_STATUS: '/api/workflow/model-status',
         GENERATE: '/api/generate',
         GENERATE_STATUS: '/api/generate/status',
         LORA_LIST: '/api/lora/list',
