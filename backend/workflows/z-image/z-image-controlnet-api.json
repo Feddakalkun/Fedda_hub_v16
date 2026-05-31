@@ -318,7 +318,7 @@
   },
   "105": {
     "inputs": {
-      "model": "lotus-depth-g-v2-0.safetensors",
+      "model": "lotus-depth-g-v2-0-disparity.safetensors",
       "precision": "fp16"
     },
     "class_type": "LoadLotusModel",

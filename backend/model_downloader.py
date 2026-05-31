@@ -32,12 +32,12 @@ class ModelDownloader:
             },
             "Z-Image-Turbo-Fun-Controlnet-Union.safetensors": {
                 "relative_dir": Path("model_patches"),
-                "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+                "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
                 "min_bytes": 10 * 1024 * 1024,
             },
             "lotus-depth-g-v2-0-disparity.safetensors": {
                 "relative_dir": Path("unet"),
-                "url": "https://huggingface.co/LotusDEPTH/Lotus-Depth-g-v2-0-disparity/resolve/main/diffusion_pytorch_model.safetensors",
+                "url": "https://huggingface.co/jingheya/lotus-depth-g-v2-0-disparity/resolve/main/unet/diffusion_pytorch_model.safetensors",
                 "min_bytes": 10 * 1024 * 1024,
             },
             "vae-ft-mse-840000-ema-pruned.safetensors": {
