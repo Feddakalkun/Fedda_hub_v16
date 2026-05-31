@@ -61,22 +61,18 @@ export const VideoSectionCards = ({ onSelect, onBack }: VideoSectionCardsProps) 
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {WORKFLOWS.map(({ tab, label, description, image }) => (
+          {WORKFLOWS.map(({ tab, label, image }) => (
             <button
               key={tab}
               onClick={() => onSelect(tab)}
-              className="group relative min-h-[310px] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] text-left transition hover:-translate-y-0.5 hover:border-teal-100/35"
+              aria-label={label}
+              className="group relative aspect-[1168/784] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] transition hover:-translate-y-0.5 hover:border-teal-100/35"
             >
               <img
                 src={image}
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover opacity-95 transition duration-500 group-hover:scale-[1.03]"
+                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-5">
-                <h2 className="text-lg font-semibold text-white">{label}</h2>
-                <p className="mt-2 max-w-md text-sm leading-5 text-teal-50/65">{description}</p>
-              </div>
             </button>
           ))}
         </div>

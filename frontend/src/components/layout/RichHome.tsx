@@ -41,6 +41,9 @@ const CARDS = [
 ];
 
 export const RichHome = ({ onSelect }: RichHomeProps) => {
+  const topCards = CARDS.slice(0, 2);
+  const bottomCards = CARDS.slice(2);
+
   return (
     <div className="h-full overflow-y-auto custom-scrollbar bg-[#050908]">
       <div className="mx-auto flex min-h-full w-full max-w-[1500px] flex-col px-8 py-8">
@@ -57,38 +60,58 @@ export const RichHome = ({ onSelect }: RichHomeProps) => {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {CARDS.map(({ id, label, description, poster, video }, index) => (
-            <button
-              key={id}
-              onClick={() => onSelect(id)}
-              className="group relative min-h-[340px] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] text-left transition-all hover:-translate-y-0.5 hover:border-teal-100/35"
-            >
-              <img
-                src={poster}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover opacity-95 transition duration-500 group-hover:scale-[1.03]"
-              />
-              <video
-                className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-90"
-                src={video}
-                poster={poster}
-                muted
-                loop
-                playsInline
-                autoPlay
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-teal-100/45">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="mx-3 h-px flex-1 bg-teal-100/20" />
-                </div>
-                <h2 className="text-base font-semibold tracking-tight text-white">{label}</h2>
-                <p className="mt-2 text-sm leading-5 text-teal-50/65">{description}</p>
-              </div>
-            </button>
-          ))}
+        <section className="space-y-4">
+          <div className="mx-auto grid max-w-[980px] gap-4 md:grid-cols-2">
+            {topCards.map(({ id, label, poster, video }) => (
+              <button
+                key={id}
+                onClick={() => onSelect(id)}
+                aria-label={label}
+                className="group relative aspect-[1168/784] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] transition-all hover:-translate-y-0.5 hover:border-teal-100/35"
+              >
+                <img
+                  src={poster}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                />
+                <video
+                  className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                  src={video}
+                  poster={poster}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                />
+              </button>
+            ))}
+          </div>
+
+          <div className="mx-auto grid max-w-[1240px] gap-4 md:grid-cols-3">
+            {bottomCards.map(({ id, label, poster, video }) => (
+              <button
+                key={id}
+                onClick={() => onSelect(id)}
+                aria-label={label}
+                className="group relative aspect-[1168/784] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] transition-all hover:-translate-y-0.5 hover:border-teal-100/35"
+              >
+                <img
+                  src={poster}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                />
+                <video
+                  className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                  src={video}
+                  poster={poster}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                />
+              </button>
+            ))}
+          </div>
         </section>
       </div>
     </div>
