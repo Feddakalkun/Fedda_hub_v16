@@ -139,6 +139,7 @@ export const QwenMultiAnglesPage = () => {
   const [modelStatusError, setModelStatusError] = useState('');
   const [uploadedImageName, setUploadedImageName] = useState('');
   const [uploadedPreview, setUploadedPreview] = useState('');
+  const [generationError, setGenerationError] = useState('');
   const [results, setResults] = useState<string[]>([]);
   const workflowId = generationMode === 'fast' ? 'qwen-multi-angles-fast' : 'qwen-multi-angles';
 
@@ -324,6 +325,14 @@ export const QwenMultiAnglesPage = () => {
           (img: any) =>
             `/comfy/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder ?? '')}&type=${encodeURIComponent(img.type ?? 'output')}`,
         );
+        if (urls.length === 0) {
+          throw new Error(
+            'ComfyUI completed the workflow, but did not return an image file. Check the ComfyUI terminal for VAE/model warnings.',
+          );
+        }
+        if (urls.length < expectedCount) {
+          toast(`Workflow returned ${urls.length} of ${expectedCount} expected outputs.`, 'info');
+        }
         setResults(urls.slice(0, expectedCount));
         return;
       }
@@ -342,6 +351,7 @@ export const QwenMultiAnglesPage = () => {
       return;
     }
     setIsGenerating(true);
+    setGenerationError('');
     setResults([]);
     try {
       const chosenSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_000) : seed;
@@ -372,7 +382,9 @@ export const QwenMultiAnglesPage = () => {
       await pollResults(String(data.prompt_id));
       toast(`Multi-angle generation complete (${generationMode === 'fast' ? 'Fast' : 'Standard'})`, 'success');
     } catch (err: any) {
-      toast(err?.message || 'Generation failed', 'error');
+      const message = err?.message || 'Generation failed';
+      setGenerationError(message);
+      toast(message, 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -756,8 +768,14 @@ export const QwenMultiAnglesPage = () => {
           )}
 
           {results.length === 0 ? (
-            <div className="h-[360px] rounded-xl border border-dashed border-white/10 flex items-center justify-center text-slate-500 text-sm">
-              {isGenerating ? 'Running workflow...' : 'No outputs yet'}
+            <div
+              className={`h-[360px] rounded-xl border border-dashed flex items-center justify-center px-6 text-center text-sm ${
+                generationError
+                  ? 'border-red-400/30 bg-red-500/5 text-red-200'
+                  : 'border-white/10 text-slate-500'
+              }`}
+            >
+              {generationError || (isGenerating ? 'Running workflow...' : 'No outputs yet')}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
