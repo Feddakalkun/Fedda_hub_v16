@@ -76,3 +76,18 @@ This file is the running trail for v16 modularization work. Add a new entry afte
   - Resolver selected 26 of 50 configured custom nodes from the current enabled modules.
   - `scripts/module_nodes.ps1`, `scripts/install_lite.ps1`, `scripts/install.ps1`, and `scripts/update_logic.ps1` all parsed cleanly with PowerShell parser.
 - Updated `README.md` from v15 wording to v16 modular distribution wording.
+
+## 2026-06-02 00:44 Europe/Oslo
+
+- Added backend-manifest bridge metadata to frontend registry:
+  - `frontend/src/modules/registry.ts`
+- Each UI module/card now declares:
+  - `sourceModuleId`
+  - optional `workflows`
+- Intent:
+  - Keep detailed UI cards while still pointing each card back to the owning backend/install module.
+  - Make later module toggles safer because frontend cards can be matched to `config/modules.json` ownership.
+- Validation run:
+  - `npm run build` in `frontend` passed.
+  - `python -m py_compile backend\module_service.py backend\server.py` passed.
+  - Vite still warns that the main JS chunk is larger than 500 kB; no code-splitting change was made in this pass.
