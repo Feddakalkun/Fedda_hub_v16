@@ -601,6 +601,12 @@ if (Test-Path $WanAnimatePatch) {
     & powershell -ExecutionPolicy Bypass -File "$WanAnimatePatch" -RootPath "$RootPath"
 }
 
+$LtxVideoPatch = Join-Path $RootPath "scripts\patch_ltxvideo_kornia.ps1"
+if (Test-Path $LtxVideoPatch) {
+    Write-Step "Applying LTXVideo Kornia compatibility patch..."
+    & powershell -ExecutionPolicy Bypass -File "$LtxVideoPatch" -RootPath "$RootPath"
+}
+
 Write-Step "Skipping automatic Z-Image Turbo celeb pack download (available in UI on demand)." "Yellow"
 
 # ============================================================================

@@ -268,6 +268,18 @@ if ($NeedNodeUpdate -or $HasMissing) {
     Write-Host "`n  Summary: $($Parts -join ', ')" -ForegroundColor Cyan
 }
 
+$WanAnimatePatch = Join-Path $RootPath "scripts\patch_wan_animate_preprocess.ps1"
+if (Test-Path $WanAnimatePatch) {
+    Write-Host "  Applying WanAnimate preprocess compatibility patch..." -ForegroundColor Gray
+    & powershell -ExecutionPolicy Bypass -File "$WanAnimatePatch" -RootPath "$RootPath"
+}
+
+$LtxVideoPatch = Join-Path $RootPath "scripts\patch_ltxvideo_kornia.ps1"
+if (Test-Path $LtxVideoPatch) {
+    Write-Host "  Applying LTXVideo Kornia compatibility patch..." -ForegroundColor Gray
+    & powershell -ExecutionPolicy Bypass -File "$LtxVideoPatch" -RootPath "$RootPath"
+}
+
 # ============================================================================
 # 1b. PATCH PYTHON DEPENDENCIES - fix known version conflicts
 # ============================================================================

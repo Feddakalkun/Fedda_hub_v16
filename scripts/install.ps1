@@ -800,6 +800,12 @@ if (Test-Path $WanAnimatePatch) {
     & powershell -ExecutionPolicy Bypass -File "$WanAnimatePatch" -RootPath "$RootPath"
 }
 
+$LtxVideoPatch = Join-Path $RootPath "scripts\patch_ltxvideo_kornia.ps1"
+if (Test-Path $LtxVideoPatch) {
+    Write-Log "Applying LTXVideo Kornia compatibility patch..."
+    & powershell -ExecutionPolicy Bypass -File "$LtxVideoPatch" -RootPath "$RootPath"
+}
+
 Pause-Step
 
 # 7. Comprehensive Dependencies (Updated with fixes)

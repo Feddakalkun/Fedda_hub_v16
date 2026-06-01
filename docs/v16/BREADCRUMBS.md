@@ -123,3 +123,25 @@ This file is the running trail for v16 modularization work. Add a new entry afte
   - `npm run build` in `frontend` passed.
   - Vite still warns that the main JS chunk is larger than 500 kB; no code-splitting change was made in this pass.
 - Browser tooling was unavailable in this Codex turn, and no localhost dev server was running during validation.
+
+## 2026-06-02 01:30 Europe/Oslo
+
+- Fixed LTX custom node import failure after user hit:
+  - `Node 'LTXV Img To Video Condition Only' not found`
+- Root cause:
+  - `ComfyUI-LTXVideo` was installed, but failed to import with Kornia 0.8.3 because `kornia.geometry.transform.pyramid` no longer exports `pad`.
+  - ComfyUI therefore did not register any LTXVideo nodes.
+- Added compatibility patch script:
+  - `scripts/patch_ltxvideo_kornia.ps1`
+- Wired the patch into:
+  - `scripts/install_lite.ps1`
+  - `scripts/install.ps1`
+  - `scripts/update_logic.ps1`
+- Applied the patch directly to the current install test app:
+  - `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\app\ComfyUI\custom_nodes\ComfyUI-LTXVideo\pyramid_blending.py`
+- Validation run:
+  - PowerShell parser passed for all changed scripts.
+  - Embedded Python import test passed for `ComfyUI-LTXVideo`.
+  - Import test confirmed `LTXVImgToVideoConditionOnly` is registered in `NODE_CLASS_MAPPINGS`.
+- Required manual follow-up:
+  - Restart ComfyUI/app after applying the patch so ComfyUI reloads custom nodes.

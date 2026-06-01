@@ -23,6 +23,7 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
   - `frontend/src/components/layout/WorkflowWorkbench.tsx`
   - `frontend/src/components/layout/WorkflowVideoPreviewStrip.tsx`
 - LTX Img2Vid and LTX First/Last Frame now use the shared workflow run/layout base.
+- LTXVideo Kornia 0.8.x compatibility patch exists at `scripts/patch_ltxvideo_kornia.ps1` and is called by install/update scripts.
 - Frontend dependencies were installed in the v16 repo clone and `npm run build` passed.
 - First modular foundation commit is `e6d01cc`.
 - `main` was pushed to `https://github.com/Feddakalkun/Fedda_hub_v16`.
@@ -37,13 +38,14 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 
 ## Next Recommended Steps
 
-1. Manually open the two migrated LTX pages and inspect layout in the browser.
-2. If LTX feels good, migrate one simple WAN page next, preferably `WAN 2.2 Img2Vid`.
-3. Add module-aware model/preflight specs next to workflow ownership.
-4. Add a small module validation command/script that checks frontend `sourceModuleId` values against backend `config/modules.json`.
-5. Replace or bridge `frontend/src/config/navigation.ts` with the new module registry.
-6. Only after the registry is stable, begin moving individual workflow families into module folders.
-7. Keep repo clone and install clone synchronized after each commit.
+1. Restart the app/ComfyUI after the LTXVideo patch, then retest the LTX Img2Vid page.
+2. Manually inspect the two migrated LTX pages in the browser.
+3. If LTX feels good, migrate one simple WAN page next, preferably `WAN 2.2 Img2Vid`.
+4. Add module-aware model/preflight specs next to workflow ownership.
+5. Add a small module validation command/script that checks frontend `sourceModuleId` values against backend `config/modules.json`.
+6. Replace or bridge `frontend/src/config/navigation.ts` with the new module registry.
+7. Only after the registry is stable, begin moving individual workflow families into module folders.
+8. Keep repo clone and install clone synchronized after each commit.
 
 ## Known Loose Ends
 
