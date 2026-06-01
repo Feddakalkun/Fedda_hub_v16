@@ -59,3 +59,20 @@ This file is the running trail for v16 modularization work. Add a new entry afte
 - Validation run:
   - `python -m py_compile backend\module_service.py backend\server.py`
   - Module manifest check found 6 modules and no missing workflow or custom node config references.
+
+## 2026-06-02 00:34 Europe/Oslo
+
+- Added module-aware custom node resolver:
+  - `scripts/module_nodes.ps1`
+- Updated installer/update paths to use the resolver when available:
+  - `scripts/install_lite.ps1`
+  - `scripts/install.ps1`
+  - `scripts/update_logic.ps1`
+- Behavior:
+  - Reads `config/modules.json`.
+  - Selects custom nodes referenced by enabled modules.
+  - Falls back to full `config/nodes.json` if the manifest/helper cannot be read.
+- Validation run:
+  - Resolver selected 26 of 50 configured custom nodes from the current enabled modules.
+  - `scripts/module_nodes.ps1`, `scripts/install_lite.ps1`, `scripts/install.ps1`, and `scripts/update_logic.ps1` all parsed cleanly with PowerShell parser.
+- Updated `README.md` from v15 wording to v16 modular distribution wording.

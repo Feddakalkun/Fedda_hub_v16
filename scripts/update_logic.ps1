@@ -94,7 +94,14 @@ if (-not (Test-Path $NodesConfigFile)) {
     exit 1
 }
 
-$NodesConfig = Get-Content $NodesConfigFile -Raw | ConvertFrom-Json
+$ModuleNodeScript = Join-Path $RootPath "scripts\module_nodes.ps1"
+if (Test-Path $ModuleNodeScript) {
+    . $ModuleNodeScript
+    $NodesConfig = Get-FeddaNodeConfig -RootPath $RootPath -Logger { param($Message, $Color) Write-Host "  $Message" -ForegroundColor $Color }
+} else {
+    Write-Host "  [WARNING] Module node helper missing; using config/nodes.json directly." -ForegroundColor Yellow
+    $NodesConfig = Get-Content $NodesConfigFile -Raw | ConvertFrom-Json
+}
 
 if (-not (Test-Path $CustomNodesDir)) {
     New-Item -ItemType Directory -Path $CustomNodesDir -Force | Out-Null

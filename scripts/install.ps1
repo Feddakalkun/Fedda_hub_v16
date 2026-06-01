@@ -674,7 +674,14 @@ Pause-Step
 
 # 6. Custom Nodes Installation
 Write-Log "`n[ComfyUI 6/9] Installing Custom Nodes..."
-$NodesConfig = Get-Content (Join-Path $RootPath "config\nodes.json") | ConvertFrom-Json
+$ModuleNodeScript = Join-Path $RootPath "scripts\module_nodes.ps1"
+if (Test-Path $ModuleNodeScript) {
+    . $ModuleNodeScript
+    $NodesConfig = Get-FeddaNodeConfig -RootPath $RootPath -Logger { param($Message, $Color) Write-Log $Message }
+} else {
+    Write-Log "[WARNING] Module node helper missing; using config/nodes.json directly."
+    $NodesConfig = Get-Content (Join-Path $RootPath "config\nodes.json") | ConvertFrom-Json
+}
 $CustomNodesDir = Join-Path $ComfyDir "custom_nodes"
 $InstallGguf = ($env:FEDDA_INSTALL_GGUF -eq "1")
 

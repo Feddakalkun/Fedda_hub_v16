@@ -545,9 +545,16 @@ Write-Step "All Python dependencies installed." "Green"
 # ============================================================================
 # 4. CUSTOM NODES
 # ============================================================================
-Write-Header "STEP 4/7 - Custom Nodes (from config/nodes.json)"
+Write-Header "STEP 4/7 - Custom Nodes (module-aware config)"
 
-$NodesConfig = Get-Content (Join-Path $RootPath "config\nodes.json") | ConvertFrom-Json
+$ModuleNodeScript = Join-Path $RootPath "scripts\module_nodes.ps1"
+if (Test-Path $ModuleNodeScript) {
+    . $ModuleNodeScript
+    $NodesConfig = Get-FeddaNodeConfig -RootPath $RootPath -Logger { param($Message, $Color) Write-Step $Message $Color }
+} else {
+    Write-Step "Module node helper missing; installing all nodes from nodes.json." "Yellow"
+    $NodesConfig = Get-Content (Join-Path $RootPath "config\nodes.json") | ConvertFrom-Json
+}
 $CustomNodesDir = Join-Path $ComfyDir "custom_nodes"
 if (-not (Test-Path $CustomNodesDir)) { New-Item -ItemType Directory -Path $CustomNodesDir | Out-Null }
 
