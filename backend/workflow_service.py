@@ -396,6 +396,40 @@ class WorkflowService:
         print(f"[WorkflowService] WAN21 payload verification: {debug}")
         return debug
 
+    def verify_zimage_controlnet_payload(self, workflow: Dict[str, Any], user_params: Dict[str, Any]) -> Dict[str, Any]:
+        """Confirm the Z-Image pose stage uses the captured frame and requested character LoRA."""
+        expected_image = str((user_params or {}).get("image") or "").strip()
+        actual_image = str((workflow.get("99") or {}).get("inputs", {}).get("image") or "").strip()
+        requested_loras = [
+            str(item.get("name") or "").replace("\\", "/")
+            for item in ((user_params or {}).get("loras") or [])
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ]
+        node_129_inputs = (workflow.get("129") or {}).get("inputs", {}) or {}
+        injected_loras = [
+            str(value.get("lora") or "").replace("\\", "/")
+            for key, value in node_129_inputs.items()
+            if str(key).startswith("lora_") and isinstance(value, dict) and value.get("on") and str(value.get("lora") or "").strip()
+        ]
+        errors = []
+        if not expected_image:
+            errors.append("Missing Z-Image pose frame parameter")
+        elif actual_image != expected_image:
+            errors.append(f"Node 99 image mismatch: expected '{expected_image}', got '{actual_image}'")
+        missing_loras = [name for name in requested_loras if name not in injected_loras]
+        if missing_loras:
+            errors.append(f"LoRA injection mismatch: missing {missing_loras}, injected {injected_loras}")
+        debug = {
+            "node_99_image": actual_image,
+            "expected_image": expected_image,
+            "requested_loras": requested_loras,
+            "node_129_loras": injected_loras,
+            "ok": not errors,
+            "errors": errors,
+        }
+        print(f"[WorkflowService] Z-Image ControlNet payload verification: {debug}")
+        return debug
+
     def _trim_qwen_multi_angle_outputs(self, workflow: dict, user_params: Dict[str, Any]) -> None:
         """Keep only the requested Qwen multi-angle output branches active."""
         try:

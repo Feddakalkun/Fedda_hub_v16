@@ -362,10 +362,7 @@ export function Wan21SteadyDancerPage() {
     return n.includes('wan') || n.includes('lightx2v') || n.includes('steady');
   }), [availableLoras]);
 
-  const zImageLoras = useMemo(() => availableLoras.filter((name) => {
-    const n = name.replace(/\\/g, '/').toLowerCase();
-    return n.includes('z-image') || n.includes('zimage') || n.includes('antigravity') || n.includes('sara');
-  }), [availableLoras]);
+  const characterLoras = useMemo(() => [...availableLoras].sort((a, b) => a.localeCompare(b)), [availableLoras]);
 
   useEffect(() => {
     comfyService.getLoras().then(setAvailableLoras).catch(() => setAvailableLoras([]));
@@ -727,6 +724,9 @@ export function Wan21SteadyDancerPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.detail || 'Z-Image generation failed');
+      if (data.debug?.zimage_pose) {
+        console.info('Z-Image pose payload', data.debug.zimage_pose);
+      }
       const images = await pollPoseImages(String(data.prompt_id));
       const imported = await importPoseCandidates(images);
       setPoseImages(imported);
@@ -1023,7 +1023,7 @@ export function Wan21SteadyDancerPage() {
                 <Field label="Character LoRA" className="md:col-span-2">
                   <select value={characterLora} onChange={(event) => setCharacterLora(event.target.value)} className={inputBase}>
                     <option value="">Workflow default / none</option>
-                    {zImageLoras.map((name) => <option key={name} value={name}>{name}</option>)}
+                    {characterLoras.map((name) => <option key={name} value={name}>{name}</option>)}
                   </select>
                 </Field>
                 <Field label="LoRA strength">
@@ -1034,6 +1034,11 @@ export function Wan21SteadyDancerPage() {
                 {isGeneratingPose ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 Generate Character Pose Image
               </NeutralButton>
+              <div className="rounded-xl border border-white/10 bg-black/25 p-3 text-[11px] leading-relaxed text-zinc-500">
+                <div className="truncate">Pose frame sent: <span className="font-mono text-zinc-300">{capturedFrameFile || 'none'}</span></div>
+                <div className="truncate">Character LoRA sent: <span className="font-mono text-zinc-300">{characterLora || 'none'}</span></div>
+                <div>Control strength: <span className="font-mono text-zinc-300">{controlStrength}</span></div>
+              </div>
             </div>
             <div className="space-y-3">
               {poseImages.length === 0 ? (

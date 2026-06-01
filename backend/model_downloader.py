@@ -45,6 +45,16 @@ class ModelDownloader:
                 "url": "https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors",
                 "min_bytes": 5 * 1024 * 1024,
             },
+            "yolox_l.onnx": {
+                "root_relative_path": Path("ComfyUI") / "custom_nodes" / "comfyui_controlnet_aux" / "ckpts" / "yzd-v" / "DWPose" / "yolox_l.onnx",
+                "url": "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx",
+                "min_bytes": 10 * 1024 * 1024,
+            },
+            "dw-ll_ucoco_384_bs5.torchscript.pt": {
+                "root_relative_path": Path("ComfyUI") / "custom_nodes" / "comfyui_controlnet_aux" / "ckpts" / "hr16" / "DWPose-TorchScript-BatchSize5" / "dw-ll_ucoco_384_bs5.torchscript.pt",
+                "url": "https://huggingface.co/hr16/DWPose-TorchScript-BatchSize5/resolve/main/dw-ll_ucoco_384_bs5.torchscript.pt",
+                "min_bytes": 10 * 1024 * 1024,
+            },
         }
         self.wan_core_specs: Dict[str, Dict[str, Any]] = {
             "clip_vision_h.safetensors": {
@@ -116,6 +126,11 @@ class ModelDownloader:
         except Exception:
             return False
 
+    def _dest_path_for_spec(self, spec: Dict[str, Any], filename: str) -> Path:
+        if spec.get("root_relative_path"):
+            return self.root_dir / spec["root_relative_path"]
+        return self.comfy_models_dir / spec["relative_dir"] / filename
+
     def _start_download_if_needed(self, filename: str, dest_path: Path, url: str, min_bytes: int) -> str:
         if self._is_valid_file(dest_path, min_bytes=min_bytes):
             self._update_progress(filename, "completed", 100)
@@ -153,7 +168,7 @@ class ModelDownloader:
                 })
                 continue
 
-            dest_path = self.comfy_models_dir / spec["relative_dir"] / filename
+            dest_path = self._dest_path_for_spec(spec, filename)
             min_bytes = int(spec.get("min_bytes", 10240))
             status = self._start_download_if_needed(filename, dest_path, str(spec["url"]), min_bytes)
             progress = self.get_progress(filename)
@@ -189,7 +204,7 @@ class ModelDownloader:
                 })
                 continue
 
-            dest_path = self.comfy_models_dir / spec["relative_dir"] / filename
+            dest_path = self._dest_path_for_spec(spec, filename)
             min_bytes = int(spec.get("min_bytes", 10240))
             status = self._start_download_if_needed(filename, dest_path, str(spec["url"]), min_bytes)
             progress = self.get_progress(filename)
@@ -246,3 +261,4 @@ class ModelDownloader:
 
 # Instance for shared use
 model_downloader = ModelDownloader(Path(__file__).parent.parent)
+

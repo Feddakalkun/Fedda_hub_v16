@@ -1729,6 +1729,8 @@ def _zimage_required_models(workflow_id: str, params: Dict[str, Any]) -> List[st
             "Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
             "lotus-depth-g-v2-0-disparity.safetensors",
             "vae-ft-mse-840000-ema-pruned.safetensors",
+            "yolox_l.onnx",
+            "dw-ll_ucoco_384_bs5.torchscript.pt",
         ])
     return [n for n in names if n]
 
@@ -2187,12 +2189,20 @@ async def generate(req: GenerateRequest):
             raise HTTPException(status_code=400, detail=f"Failed to prepare workflow '{req.workflow_id}'")
 
         wan_payload_debug = None
+        zimage_pose_debug = None
         if req.workflow_id == "wan21-steady-dancer":
             wan_payload_debug = workflow_service.verify_wan21_payload(payload, req.params)
             if not wan_payload_debug.get("ok"):
                 raise HTTPException(
                     status_code=400,
                     detail="; ".join(wan_payload_debug.get("errors") or ["Steady Dancer payload verification failed"]),
+                )
+        if req.workflow_id == "z-image-controlnet-pose":
+            zimage_pose_debug = workflow_service.verify_zimage_controlnet_payload(payload, req.params)
+            if not zimage_pose_debug.get("ok"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="; ".join(zimage_pose_debug.get("errors") or ["Z-Image ControlNet payload verification failed"]),
                 )
 
         # 2. Submit to ComfyUI — use the browser's clientId so WS messages route back correctly
@@ -2216,7 +2226,8 @@ async def generate(req: GenerateRequest):
             "debug": {
                 "wan_inputs": wan_input_debug,
                 "wan_payload": wan_payload_debug,
-            } if req.workflow_id == "wan21-steady-dancer" else None,
+                "zimage_pose": zimage_pose_debug,
+            } if req.workflow_id in {"wan21-steady-dancer", "z-image-controlnet-pose"} else None,
         }
     except HTTPException:
         raise
