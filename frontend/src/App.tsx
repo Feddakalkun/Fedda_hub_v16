@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react';
-import { Film, Images, LayoutDashboard, Sparkles, Video, Bot } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, Video } from 'lucide-react';
 import { RichHome } from './components/layout/RichHome';
 import { ImageSectionCards } from './components/layout/ImageSectionCards';
 import { VideoSectionCards } from './components/layout/VideoSectionCards';
@@ -11,48 +11,16 @@ import { VideoStudioPage } from './pages/VideoStudioPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { OllamaModelsPage } from './pages/OllamaModelsPage';
+import { ACTIVE_TAB_STORAGE_KEY, APP_VERSION_LABEL, DEFAULT_TAB, PAGE_META, VALID_TABS } from './modules/registry';
 
-const VALID_TABS = new Set([
-  'image', 'z-image', 'z-image-txt2img', 'z-image-dual-lora', 'flux', 'flux-txt2img',
-  'qwen', 'qwen-txt2img', 'qwen-image-ref', 'qwen-multi-angle',
-  'video', 'wan21-steady-dancer', 'wan22-vid2vid', 'wan22-img2vid', 'wan22-img2vid-6frames',
-  'ltx', 'ltx-flf', 'ltx-img2vid',
-  'gallery', 'library', 'ollama',
-]);
-
-const PAGE_META: Record<string, { label: string; Icon: any }> = {
-  image: { label: 'Image Studio', Icon: Sparkles },
-  'z-image': { label: 'Z-Image', Icon: Sparkles },
-  'z-image-txt2img': { label: 'Z-Image Txt2Img', Icon: Sparkles },
-  'z-image-dual-lora': { label: 'Z-Image Dual LoRA', Icon: Sparkles },
-  flux: { label: 'FLUX2-KLEIN', Icon: Sparkles },
-  'flux-txt2img': { label: 'FLUX2-KLEIN Txt2Img', Icon: Sparkles },
-  qwen: { label: 'Qwen', Icon: Sparkles },
-  'qwen-txt2img': { label: 'Qwen Txt2Img', Icon: Sparkles },
-  'qwen-image-ref': { label: 'Qwen Image Reference', Icon: Sparkles },
-  'qwen-multi-angle': { label: 'Qwen Multi Angle', Icon: Sparkles },
-  video: { label: 'Video Studio', Icon: Video },
-  'wan21-steady-dancer': { label: 'WAN 2.1 Steady Dancer', Icon: Video },
-  'wan22-vid2vid': { label: 'WAN 2.2 Vid2Vid', Icon: Video },
-  'wan22-img2vid': { label: 'WAN 2.2 Img2Vid', Icon: Video },
-  'wan22-img2vid-6frames': { label: 'WAN 2.2 Story', Icon: Video },
-  ltx: { label: 'LTX Video', Icon: Film },
-  'ltx-flf': { label: 'LTX First / Last', Icon: Film },
-  'ltx-img2vid': { label: 'LTX Img2Vid', Icon: Film },
-  gallery: { label: 'Gallery', Icon: Images },
-  library: { label: 'LoRA & Character', Icon: LayoutDashboard },
-  ollama: { label: 'Ollama Models', Icon: Bot },
-};
-
-const TAB_KEY = 'fedda_v15_active_tab';
 type ViewMode = 'home' | 'image-section' | 'video-section' | 'workspace';
 
 function readActiveTab(): string {
   try {
-    const raw = localStorage.getItem(TAB_KEY);
+    const raw = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     if (raw && VALID_TABS.has(raw)) return raw;
   } catch {}
-  return 'image';
+  return DEFAULT_TAB;
 }
 
 function FeddaApp() {
@@ -60,7 +28,7 @@ function FeddaApp() {
   const [activeTab, setActiveTab] = useState(readActiveTab);
 
   useEffect(() => {
-    try { localStorage.setItem(TAB_KEY, activeTab); } catch {}
+    try { localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab); } catch {}
   }, [activeTab]);
 
   const openTab = (tab: string) => {
@@ -76,9 +44,9 @@ function FeddaApp() {
   };
 
   const goHome = () => setView('home');
-  const meta = PAGE_META[activeTab] ?? PAGE_META.image;
+  const meta = PAGE_META[activeTab] ?? PAGE_META[DEFAULT_TAB];
   const Icon = view === 'image-section' ? Sparkles : view === 'video-section' ? Video : meta.Icon;
-  const title = view === 'home' ? 'FEDDA Hub v15' : view === 'image-section' ? 'Image Studio' : view === 'video-section' ? 'Video Studio' : meta.label;
+  const title = view === 'home' ? APP_VERSION_LABEL : view === 'image-section' ? 'Image Studio' : view === 'video-section' ? 'Video Studio' : meta.label;
 
   const renderWorkspace = () => {
     if (activeTab === 'gallery') return <GalleryPage />;
@@ -129,4 +97,3 @@ export default function App() {
     </ComfyExecutionProvider>
   );
 }
-

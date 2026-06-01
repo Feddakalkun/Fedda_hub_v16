@@ -1,48 +1,10 @@
 import { ArrowLeft } from 'lucide-react';
+import { VIDEO_WORKFLOW_MODULES } from '../../modules/registry';
 
 interface VideoSectionCardsProps {
   onSelect: (tab: string) => void;
   onBack?: () => void;
 }
-
-const WORKFLOWS = [
-  {
-    tab: 'wan22-img2vid',
-    label: 'WAN 2.2 Img2Vid',
-    description: 'Animate a still image with WAN 2.2.',
-    image: '/cards/deep-teal/wan22-img2vid.jpg',
-  },
-  {
-    tab: 'wan22-vid2vid',
-    label: 'WAN 2.2 Vid2Vid',
-    description: 'Transform and extend a video clip.',
-    image: '/cards/deep-teal/wan22-vid2vid.jpg',
-  },
-  {
-    tab: 'wan22-img2vid-6frames',
-    label: 'WAN Story',
-    description: 'Build video from a six-frame story sequence.',
-    image: '/cards/deep-teal/wan-story.jpg',
-  },
-  {
-    tab: 'wan21-steady-dancer',
-    label: 'Steady Dancer',
-    description: 'Transfer dance motion from reference video.',
-    image: '/cards/deep-teal/steady-dancer.jpg',
-  },
-  {
-    tab: 'ltx-img2vid',
-    label: 'LTX Img2Vid',
-    description: 'Animate one reference image with LTX.',
-    image: '/cards/deep-teal/ltx-img2vid.jpg',
-  },
-  {
-    tab: 'ltx-flf',
-    label: 'LTX First / Last',
-    description: 'Interpolate motion between two keyframes.',
-    image: '/cards/deep-teal/ltx-first-last.jpg',
-  },
-];
 
 export const VideoSectionCards = ({ onSelect, onBack }: VideoSectionCardsProps) => {
   return (
@@ -61,15 +23,15 @@ export const VideoSectionCards = ({ onSelect, onBack }: VideoSectionCardsProps) 
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {WORKFLOWS.map(({ tab, label, image }) => (
+          {VIDEO_WORKFLOW_MODULES.map((module) => (
             <button
-              key={tab}
-              onClick={() => onSelect(tab)}
-              aria-label={label}
+              key={module.id}
+              onClick={() => onSelect(module.defaultTab)}
+              aria-label={module.label}
               className="group relative aspect-[1168/784] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] transition hover:-translate-y-0.5 hover:border-teal-100/35"
             >
               <img
-                src={image}
+                src={module.card?.poster}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
               />

@@ -1,48 +1,10 @@
 import { ArrowLeft } from 'lucide-react';
+import { IMAGE_WORKFLOW_MODULES } from '../../modules/registry';
 
 interface ImageSectionCardsProps {
   onSelect: (tab: string) => void;
   onBack?: () => void;
 }
-
-const WORKFLOWS = [
-  {
-    tab: 'z-image-txt2img',
-    label: 'Z-Image Txt2Img',
-    description: 'Fast core text-to-image generation.',
-    image: '/cards/deep-teal/z-image-txt2img.jpg',
-  },
-  {
-    tab: 'z-image-dual-lora',
-    label: 'Z-Image Dual LoRA',
-    description: 'Two-LoRA character/detail workflow.',
-    image: '/cards/deep-teal/z-image-dual-lora.jpg',
-  },
-  {
-    tab: 'flux-txt2img',
-    label: 'FLUX2-KLEIN',
-    description: 'FLUX2-KLEIN 9B image generation.',
-    image: '/cards/deep-teal/flux2-klein.jpg',
-  },
-  {
-    tab: 'qwen-txt2img',
-    label: 'Qwen Txt2Img',
-    description: 'Qwen image generation workspace.',
-    image: '/cards/deep-teal/qwen-txt2img.jpg',
-  },
-  {
-    tab: 'qwen-image-ref',
-    label: 'Qwen Reference',
-    description: 'Image-reference generation and edits.',
-    image: '/cards/deep-teal/qwen-reference.jpg',
-  },
-  {
-    tab: 'qwen-multi-angle',
-    label: 'Qwen Multi Angle',
-    description: 'Generate angle variants from one input.',
-    image: '/cards/deep-teal/qwen-multi-angle.jpg',
-  },
-];
 
 export const ImageSectionCards = ({ onSelect, onBack }: ImageSectionCardsProps) => {
   return (
@@ -61,15 +23,15 @@ export const ImageSectionCards = ({ onSelect, onBack }: ImageSectionCardsProps) 
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {WORKFLOWS.map(({ tab, label, image }) => (
+          {IMAGE_WORKFLOW_MODULES.map((module) => (
             <button
-              key={tab}
-              onClick={() => onSelect(tab)}
-              aria-label={label}
+              key={module.id}
+              onClick={() => onSelect(module.defaultTab)}
+              aria-label={module.label}
               className="group relative aspect-[1168/784] overflow-hidden rounded-xl border border-teal-100/15 bg-[#07100f] transition hover:-translate-y-0.5 hover:border-teal-100/35"
             >
               <img
-                src={image}
+                src={module.card?.poster}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
               />

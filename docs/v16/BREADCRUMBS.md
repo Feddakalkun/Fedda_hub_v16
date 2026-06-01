@@ -1,0 +1,30 @@
+# FEDDA Hub v16 Breadcrumbs
+
+This file is the running trail for v16 modularization work. Add a new entry after every meaningful update so another agent can backtrack without guessing.
+
+## 2026-06-01 23:31 Europe/Oslo
+
+- Created safety backup before v16 work:
+  - `H:\Fedda-Hub\backup\Fedda_hub_v15_repo_pre_v16_modules_20260601_233127`
+- Created clean v16 repo working clone:
+  - `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_repo`
+  - `source-v15` remote points at local v15 source clone.
+  - `origin` remote points at `https://github.com/Feddakalkun/Fedda_hub_v16`.
+- Created v16 install test clone:
+  - `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\app`
+  - `source-v16-local` remote points at local v16 repo clone.
+  - `origin` remote points at `https://github.com/Feddakalkun/Fedda_hub_v16`.
+
+## 2026-06-01 23:40 Europe/Oslo
+
+- Started first modular foundation pass.
+- Added frontend module registry at `frontend/src/modules/registry.ts`.
+- Moved home cards, image workflow cards, video workflow cards, valid tabs, app version label, and page metadata toward the registry.
+- Updated `App.tsx`, `RichHome.tsx`, `ImageSectionCards.tsx`, and `VideoSectionCards.tsx` to consume registry data.
+- Intent: modules can later be disabled or moved into booster packs without editing multiple unrelated UI files.
+
+## 2026-06-01 23:47 Europe/Oslo
+
+- Installed frontend dependencies in the v16 repo clone with `npm ci`.
+- Ran `npm run build` in `frontend`; TypeScript and Vite build passed.
+- NPM audit reported existing dependency issues: 3 moderate and 5 high. No dependency upgrades were made in this pass.
