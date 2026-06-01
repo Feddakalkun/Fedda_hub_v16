@@ -61,6 +61,10 @@ function isLikelySteadyDancerUrl(url: string) {
   return /(dancer|wanvideowrapper_steadydancer|video%2fdancer|video\/dancer)/i.test(url);
 }
 
+function isGeneratedPoseFilename(filename?: string | null) {
+  return Boolean(filename && /^fedda_approved_pose_/i.test(filename));
+}
+
 function fmtTime(seconds: number) {
   if (!Number.isFinite(seconds)) return '0:00';
   const mins = Math.floor(seconds / 60);
@@ -333,16 +337,20 @@ export function Wan21SteadyDancerPage() {
   const sourceVideoUrl = comfyViewUrl(motionVideoFile, 'input');
   const trimmedVideoUrl = comfyViewUrl(trimmedMotionFile, 'input');
   const capturedFrameUrl = comfyViewUrl(capturedFrameFile, 'input');
-  const subjectPreviewUrl = comfyViewUrl(approvedSubjectFile || subjectImageFile, 'input');
-  const finalSubjectFile = approvedSubjectFile || subjectImageFile;
+  const directSubjectFile = isGeneratedPoseFilename(subjectImageFile) ? null : subjectImageFile;
+  const finalSubjectFile = approvedSubjectFile || directSubjectFile;
+  const subjectPreviewUrl = comfyViewUrl(finalSubjectFile, 'input');
   const finalMotionFile = trimmedMotionFile || motionVideoFile;
   const clipLength = Math.max(0, endTime - startTime);
 
   const clearPoseStage = useCallback(() => {
     setCapturedFrameFile(null);
     setApprovedSubjectFile(null);
+    if (isGeneratedPoseFilename(subjectImageFile)) {
+      setSubjectImageFile(null);
+    }
     setPoseImages([]);
-  }, [setApprovedSubjectFile, setCapturedFrameFile]);
+  }, [setApprovedSubjectFile, setCapturedFrameFile, setSubjectImageFile, subjectImageFile]);
 
   const wanLoras = useMemo(() => availableLoras.filter((name) => {
     const n = name.replace(/\\/g, '/').toLowerCase();
@@ -610,6 +618,9 @@ export function Wan21SteadyDancerPage() {
       if (!res.ok || !data.success) throw new Error(data.detail || 'Capture failed');
       setCapturedFrameFile(data.filename);
       setApprovedSubjectFile(null);
+      if (isGeneratedPoseFilename(subjectImageFile)) {
+        setSubjectImageFile(null);
+      }
       setPoseImages([]);
       toast('Pose frame captured', 'success');
     } catch (err: any) {
@@ -676,6 +687,10 @@ export function Wan21SteadyDancerPage() {
   const generatePoseImage = async () => {
     if (!capturedFrameFile || isGeneratingPose) return;
     setIsGeneratingPose(true);
+    setApprovedSubjectFile(null);
+    if (isGeneratedPoseFilename(subjectImageFile)) {
+      setSubjectImageFile(null);
+    }
     setPoseImages([]);
     try {
       const loras = characterLora ? [{ name: characterLora, strength: characterLoraStrength }] : [];
@@ -717,7 +732,6 @@ export function Wan21SteadyDancerPage() {
   const approvePoseImage = async (image: ComfyImage) => {
     if (image.type === 'input') {
       setApprovedSubjectFile(image.filename);
-      setSubjectImageFile(image.filename);
       toast('Generated image is now the Steady Dancer subject', 'success');
       return;
     }
@@ -731,7 +745,6 @@ export function Wan21SteadyDancerPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.detail || 'Could not approve generated image');
       setApprovedSubjectFile(data.filename);
-      setSubjectImageFile(data.filename);
       toast('Generated image is now the Steady Dancer subject', 'success');
     } catch (err: any) {
       toast(err.message || 'Could not approve generated image', 'error');
