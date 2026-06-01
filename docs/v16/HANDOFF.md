@@ -18,6 +18,11 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 - Installer/update scripts now use `scripts/module_nodes.ps1` to select custom nodes from enabled modules when `config/modules.json` is available.
 - Frontend registry cards now include `sourceModuleId` and workflow ownership hints that point back to `config/modules.json`.
 - The v16 one-click installer has been corrected from v15 and is available as `FEDDA_v16_Installer.bat`.
+- First shared workflow-page base exists:
+  - `frontend/src/hooks/useWorkflowRun.ts`
+  - `frontend/src/components/layout/WorkflowWorkbench.tsx`
+  - `frontend/src/components/layout/WorkflowVideoPreviewStrip.tsx`
+- LTX Img2Vid and LTX First/Last Frame now use the shared workflow run/layout base.
 - Frontend dependencies were installed in the v16 repo clone and `npm run build` passed.
 - First modular foundation commit is `e6d01cc`.
 - `main` was pushed to `https://github.com/Feddakalkun/Fedda_hub_v16`.
@@ -32,12 +37,13 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 
 ## Next Recommended Steps
 
-1. Run a real installer smoke test from `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\FEDDA_v16_Installer.bat`.
-2. Add module-aware model/preflight specs next to workflow ownership.
-3. Add a small module validation command/script that checks frontend `sourceModuleId` values against backend `config/modules.json`.
-4. Replace or bridge `frontend/src/config/navigation.ts` with the new module registry.
-5. Only after the registry is stable, begin moving individual workflow families into module folders.
-6. Keep repo clone and install clone synchronized after each commit.
+1. Manually open the two migrated LTX pages and inspect layout in the browser.
+2. If LTX feels good, migrate one simple WAN page next, preferably `WAN 2.2 Img2Vid`.
+3. Add module-aware model/preflight specs next to workflow ownership.
+4. Add a small module validation command/script that checks frontend `sourceModuleId` values against backend `config/modules.json`.
+5. Replace or bridge `frontend/src/config/navigation.ts` with the new module registry.
+6. Only after the registry is stable, begin moving individual workflow families into module folders.
+7. Keep repo clone and install clone synchronized after each commit.
 
 ## Known Loose Ends
 
@@ -46,3 +52,4 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 - GitHub repo `Feddakalkun/Fedda_hub_v16` may need to be created before first push.
 - `npm audit` currently reports 3 moderate and 5 high issues inherited from the existing dependency set.
 - `scripts/module_nodes.ps1` now filters custom nodes by enabled modules, but model preflight/download behavior is not module-filtered yet.
+- Browser tooling was unavailable during the first workflow base migration, so visual QA still needs a manual pass.

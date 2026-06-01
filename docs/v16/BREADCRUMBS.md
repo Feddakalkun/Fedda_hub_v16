@@ -102,3 +102,24 @@ This file is the running trail for v16 modularization work. Add a new entry afte
 - Validation run:
   - Searched installer/readme files for stale `v15`, `Fedda_hub_v15`, and `FEDDA_v15`; no matches remained in checked files.
   - Confirmed installer text, log file, and repo URL now use v16.
+
+## 2026-06-02 01:12 Europe/Oslo
+
+- Started the shared workflow-page base pass.
+- Added reusable workflow run hook:
+  - `frontend/src/hooks/useWorkflowRun.ts`
+- Added reusable v16 workflow layout pieces:
+  - `frontend/src/components/layout/WorkflowWorkbench.tsx`
+  - `frontend/src/components/layout/WorkflowVideoPreviewStrip.tsx`
+- Added shared CSS for neutral black/grey workflow workbench and stable top video preview dimensions:
+  - `frontend/src/index.css`
+- Migrated first two workflow pages onto the new base:
+  - `frontend/src/pages/ltx/LtxImg2VidPage.tsx`
+  - `frontend/src/pages/ltx/LtxFlfPage.tsx`
+- Kept LTX workflow payloads intentionally unchanged:
+  - `ltx-img2vid`
+  - `ltx-flf`
+- Validation run:
+  - `npm run build` in `frontend` passed.
+  - Vite still warns that the main JS chunk is larger than 500 kB; no code-splitting change was made in this pass.
+- Browser tooling was unavailable in this Codex turn, and no localhost dev server was running during validation.
