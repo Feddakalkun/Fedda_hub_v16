@@ -370,6 +370,32 @@ class WorkflowService:
             
         return workflow
 
+    def verify_wan21_payload(self, workflow: Dict[str, Any], user_params: Dict[str, Any]) -> Dict[str, Any]:
+        """Confirm the WAN Steady Dancer input nodes reflect the filenames requested by the UI."""
+        expected_image = str((user_params or {}).get("image") or "").strip()
+        expected_video = str((user_params or {}).get("reference_video") or "").strip()
+        actual_image = str((workflow.get("76") or {}).get("inputs", {}).get("image") or "").strip()
+        actual_video = str((workflow.get("75") or {}).get("inputs", {}).get("video") or "").strip()
+        errors = []
+        if not expected_image:
+            errors.append("Missing Steady Dancer subject image parameter")
+        elif actual_image != expected_image:
+            errors.append(f"Node 76 image mismatch: expected '{expected_image}', got '{actual_image}'")
+        if not expected_video:
+            errors.append("Missing Steady Dancer reference video parameter")
+        elif actual_video != expected_video:
+            errors.append(f"Node 75 video mismatch: expected '{expected_video}', got '{actual_video}'")
+        debug = {
+            "node_76_image": actual_image,
+            "node_75_video": actual_video,
+            "expected_image": expected_image,
+            "expected_video": expected_video,
+            "ok": not errors,
+            "errors": errors,
+        }
+        print(f"[WorkflowService] WAN21 payload verification: {debug}")
+        return debug
+
     def _trim_qwen_multi_angle_outputs(self, workflow: dict, user_params: Dict[str, Any]) -> None:
         """Keep only the requested Qwen multi-angle output branches active."""
         try:

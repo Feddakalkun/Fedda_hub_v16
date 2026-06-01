@@ -52,6 +52,16 @@ class ModelDownloader:
                 "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors",
                 "min_bytes": 10 * 1024 * 1024,
             },
+            "vitpose-l-wholebody.onnx": {
+                "relative_dir": Path("detection"),
+                "url": "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/main/onnx/wholebody/vitpose-l-wholebody.onnx",
+                "min_bytes": 10 * 1024 * 1024,
+            },
+            "yolov10m.onnx": {
+                "relative_dir": Path("detection"),
+                "url": "https://huggingface.co/onnx-community/yolov10m/resolve/main/onnx/model.onnx",
+                "min_bytes": 10 * 1024 * 1024,
+            },
         }
 
     def get_progress(self, filename: str) -> dict:
@@ -157,7 +167,7 @@ class ModelDownloader:
                 "error": progress.get("error"),
             })
 
-        ready = all(f["status"] == "completed" and f["exists"] for f in file_states if f["status"] != "unknown")
+        ready = bool(file_states) and all(f["status"] == "completed" and f["exists"] for f in file_states)
         return {
             "success": True,
             "ready": ready,
@@ -193,7 +203,7 @@ class ModelDownloader:
                 "error": progress.get("error"),
             })
 
-        ready = all(f["status"] == "completed" and f["exists"] for f in file_states if f["status"] != "unknown")
+        ready = bool(file_states) and all(f["status"] == "completed" and f["exists"] for f in file_states)
         return {
             "success": True,
             "ready": ready,

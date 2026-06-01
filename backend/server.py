@@ -1737,7 +1737,7 @@ def _wan_required_models(workflow_id: str, params: Dict[str, Any]) -> List[str]:
     """Resolve WAN models that Comfy validates before in-graph downloader nodes can run."""
     if workflow_id != "wan21-steady-dancer":
         return []
-    return ["clip_vision_h.safetensors"]
+    return ["clip_vision_h.safetensors", "vitpose-l-wholebody.onnx", "yolov10m.onnx"]
 
 
 def _comfy_input_dir() -> Path:
@@ -1767,6 +1767,62 @@ def _resolve_input_file(filename: str) -> Path:
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail=f"Input media not found: {filename}")
     return path
+
+
+def _probe_video_duration(path: Path) -> Optional[float]:
+    proc = subprocess.run(
+        [_ffmpeg_exe(), "-i", str(path)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    text = f"{proc.stderr or ''}\n{proc.stdout or ''}"
+    match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", text)
+    if not match:
+        return None
+    hours = int(match.group(1))
+    minutes = int(match.group(2))
+    seconds = float(match.group(3))
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _validate_wan21_inputs(params: Dict[str, Any]) -> Dict[str, Any]:
+    image_name = str((params or {}).get("image") or "").strip()
+    video_name = str((params or {}).get("reference_video") or "").strip()
+    if not image_name:
+        raise HTTPException(status_code=400, detail="Steady Dancer requires a subject image.")
+    if not video_name:
+        raise HTTPException(status_code=400, detail="Steady Dancer requires a motion reference video.")
+
+    image_path = _resolve_input_file(image_name)
+    video_path = _resolve_input_file(video_name)
+
+    try:
+        fps = float((params or {}).get("fps") or 0)
+        requested_seconds = float((params or {}).get("video_length_seconds") or 0)
+    except Exception:
+        fps = 0
+        requested_seconds = 0
+    if fps <= 0 or requested_seconds <= 0:
+        raise HTTPException(status_code=400, detail="Steady Dancer requires positive FPS and video length.")
+    requested_frames = int(round(fps * requested_seconds))
+    if requested_frames < 16:
+        raise HTTPException(status_code=400, detail="Steady Dancer needs at least 16 requested frames. Increase length or FPS.")
+
+    duration = _probe_video_duration(video_path)
+    if duration is not None and duration + 0.1 < requested_seconds:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Motion reference is {duration:.1f}s, but final run requests {requested_seconds:.1f}s. Trim/select a longer clip or lower length.",
+        )
+
+    return {
+        "image": str(image_path),
+        "reference_video": str(video_path),
+        "duration": duration,
+        "requested_seconds": requested_seconds,
+        "requested_frames": requested_frames,
+    }
 
 
 def _ffmpeg_exe() -> str:
@@ -2046,6 +2102,22 @@ async def get_workflow_model_status(workflow_id: str):
         with open(path, "r", encoding="utf-8-sig") as f:
             workflow = json.load(f)
         files = _parse_workflow_download_links(workflow)
+        required_wan = _wan_required_models(workflow_id, {})
+        wan_preflight = model_downloader.ensure_wan_core_models(required_wan) if required_wan else None
+        if wan_preflight:
+            for item in wan_preflight.get("files", []):
+                files.append({
+                    "node_id": "preflight",
+                    "node_title": "FEDDA WAN preflight",
+                    "url": "",
+                    "folder": str(Path(str(item.get("path", ""))).parent.name),
+                    "filename": item.get("filename"),
+                    "path": item.get("path"),
+                    "exists": bool(item.get("exists")),
+                    "size_bytes": Path(str(item.get("path"))).stat().st_size if item.get("exists") else 0,
+                    "status": item.get("status"),
+                    "error": item.get("error"),
+                })
         missing = [f for f in files if not f.get("exists")]
         return {
             "success": True,
@@ -2055,6 +2127,7 @@ async def get_workflow_model_status(workflow_id: str):
             "total": len(files),
             "missing_count": len(missing),
             "files": files,
+            "wan_preflight": wan_preflight,
         }
     except HTTPException:
         raise
@@ -2075,6 +2148,11 @@ async def generate(req: GenerateRequest):
         if req.params.get('loras'):
             print(f"  >>> LORA NAMES BEING SENT: {[l.get('name') for l in req.params.get('loras', [])]}")
     try:
+        wan_input_debug = None
+        if req.workflow_id == "wan21-steady-dancer":
+            wan_input_debug = _validate_wan21_inputs(req.params)
+            print(f"[GENERATE] WAN21 input validation: {wan_input_debug}")
+
         required_models = _zimage_required_models(req.workflow_id, req.params)
         if required_models:
             preflight = model_downloader.ensure_zimage_core_models(required_models)
@@ -2108,6 +2186,15 @@ async def generate(req: GenerateRequest):
         if not payload:
             raise HTTPException(status_code=400, detail=f"Failed to prepare workflow '{req.workflow_id}'")
 
+        wan_payload_debug = None
+        if req.workflow_id == "wan21-steady-dancer":
+            wan_payload_debug = workflow_service.verify_wan21_payload(payload, req.params)
+            if not wan_payload_debug.get("ok"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="; ".join(wan_payload_debug.get("errors") or ["Steady Dancer payload verification failed"]),
+                )
+
         # 2. Submit to ComfyUI — use the browser's clientId so WS messages route back correctly
         client_id = req.params.get("client_id", "fedda_hub_v2")
         comfy_payload = {"prompt": payload, "client_id": client_id}
@@ -2125,7 +2212,11 @@ async def generate(req: GenerateRequest):
         return {
             "success": True, 
             "prompt_id": resp.json().get("prompt_id"),
-            "message": "Generation started"
+            "message": "Generation started",
+            "debug": {
+                "wan_inputs": wan_input_debug,
+                "wan_payload": wan_payload_debug,
+            } if req.workflow_id == "wan21-steady-dancer" else None,
         }
     except HTTPException:
         raise

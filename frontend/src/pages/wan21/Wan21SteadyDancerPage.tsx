@@ -338,10 +338,15 @@ export function Wan21SteadyDancerPage() {
   const trimmedVideoUrl = comfyViewUrl(trimmedMotionFile, 'input');
   const capturedFrameUrl = comfyViewUrl(capturedFrameFile, 'input');
   const directSubjectFile = isGeneratedPoseFilename(subjectImageFile) ? null : subjectImageFile;
-  const finalSubjectFile = approvedSubjectFile || directSubjectFile;
+  const posePipelineStarted = Boolean(capturedFrameFile || approvedSubjectFile || poseImages.length > 0 || isGeneratingPose);
+  const finalSubjectFile = posePipelineStarted ? approvedSubjectFile : directSubjectFile;
   const subjectPreviewUrl = comfyViewUrl(finalSubjectFile, 'input');
   const finalMotionFile = trimmedMotionFile || motionVideoFile;
   const clipLength = Math.max(0, endTime - startTime);
+  const requestedFrames = Math.round(Number(fps || 0) * Number(videoLength || 0));
+  const subjectModeLabel = finalSubjectFile
+    ? (posePipelineStarted ? 'Using approved pose image' : 'Using direct subject image')
+    : (posePipelineStarted ? 'Approve a generated pose image before final run' : 'Add a subject image');
 
   const clearPoseStage = useCallback(() => {
     setCapturedFrameFile(null);
@@ -471,9 +476,13 @@ export function Wan21SteadyDancerPage() {
     try {
       const filename = await uploadToComfy(file);
       setSubjectImageFile(filename);
-      setApprovedSubjectFile(null);
-      setPoseImages([]);
-      toast('Subject image uploaded', 'success');
+      if (!posePipelineStarted) {
+        setApprovedSubjectFile(null);
+        setPoseImages([]);
+        toast('Subject image uploaded', 'success');
+      } else {
+        toast('Direct subject uploaded. Reset the pose stage to use it for final run.', 'success');
+      }
     } catch (err: any) {
       toast(err.message || 'Subject upload failed', 'error');
     } finally {
@@ -755,6 +764,18 @@ export function Wan21SteadyDancerPage() {
 
   const runSteadyDancer = async () => {
     if (!finalSubjectFile || !finalMotionFile || !prompt.trim() || isGenerating) return;
+    if (posePipelineStarted && !approvedSubjectFile) {
+      toast('Approve a generated pose image before running Steady Dancer.', 'error');
+      return;
+    }
+    if (requestedFrames < 16) {
+      toast('Steady Dancer needs at least 16 frames. Increase length or FPS.', 'error');
+      return;
+    }
+    if (clipLength > 0 && clipLength + 0.1 < Number(videoLength || 0)) {
+      toast('Selected motion clip is shorter than the final length. Trim/select a longer clip or lower length.', 'error');
+      return;
+    }
     sessionRef.current = [];
     prevVideoCountRef.current = lastOutputVideos?.length ?? 0;
     setIsGenerating(true);
@@ -801,7 +822,7 @@ export function Wan21SteadyDancerPage() {
   const startPct = videoDuration > 0 ? (startTime / videoDuration) * 100 : 0;
   const endPct = videoDuration > 0 ? (endTime / videoDuration) * 100 : 100;
   const currentPct = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
-  const canRun = !!finalSubjectFile && !!finalMotionFile && !!prompt.trim() && !isGenerating;
+  const canRun = !!finalSubjectFile && !!finalMotionFile && !!prompt.trim() && requestedFrames >= 16 && !isGenerating;
 
   return (
     <WorkflowShell
@@ -909,7 +930,7 @@ export function Wan21SteadyDancerPage() {
             <StageHeader
               step="Stage 2"
               title="Pose Frame"
-              detail="Capture the start pose and keep direct subject upload available."
+              detail="Direct upload is available before staging; captured pose runs require approval."
             />
             <div className="grid gap-3 sm:grid-cols-[160px_1fr] xl:grid-cols-1">
               <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
@@ -931,12 +952,19 @@ export function Wan21SteadyDancerPage() {
                   />
                 </Field>
                 <div className="rounded-xl border border-white/10 bg-black/25 p-3 text-xs leading-relaxed text-zinc-500">
-                  Direct upload still works. The generated pose image only takes over after approval.
+                  {posePipelineStarted
+                    ? 'Pose pipeline is active. Final run will only use an approved generated pose image.'
+                    : 'Direct upload can run immediately, or capture a pose to start the staged pipeline.'}
                   {approvedSubjectFile ? (
                     <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-zinc-300">
                       <Check className="h-3.5 w-3.5" />
                       Approved generated start image
                     </div>
+                  ) : null}
+                  {posePipelineStarted ? (
+                    <NeutralButton onClick={clearPoseStage} className="mt-3 w-full">
+                      Reset pose stage
+                    </NeutralButton>
                   ) : null}
                 </div>
               </div>
@@ -1035,7 +1063,7 @@ export function Wan21SteadyDancerPage() {
           <StageHeader
             step="Stage 4"
             title="Motion Transfer"
-            detail="Final WAN 2.1 Steady Dancer run. Uses approved image when available, otherwise the direct subject upload."
+            detail="Final WAN 2.1 Steady Dancer run. The visible subject preview is the exact image sent to node 76."
           />
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="space-y-3">
@@ -1092,6 +1120,13 @@ export function Wan21SteadyDancerPage() {
                 <p className="mt-2 truncate text-[11px] text-zinc-600">{finalMotionFile || 'No video selected'}</p>
               </div>
             </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-zinc-400">
+            <span className="inline-flex items-center gap-2">
+              <Check className={classNames('h-3.5 w-3.5', finalSubjectFile ? 'text-zinc-300' : 'text-zinc-700')} />
+              {subjectModeLabel}
+            </span>
+            <span className="font-mono text-zinc-600">{requestedFrames} frames @ {fps} fps</span>
           </div>
           <NeutralButton onClick={runSteadyDancer} disabled={!canRun} className="mt-4 w-full py-3 text-sm">
             {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
