@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "generated_for": "FEDDA Hub v16",
+  "policy": {
+    "default_enabled": true,
+    "missing_module_behavior": "hide UI entrypoints, keep core app running",
+    "install_strategy": "core modules install first; booster modules can be installed independently later"
+  },
+  "modules": [
+    {
+      "id": "core-shell",
+      "label": "Core Shell",
+      "pack": "core",
+      "area": "core",
+      "enabled": true,
+      "tabs": ["home", "image", "video", "gallery", "library", "ollama"],
+      "workflows": [],
+      "custom_nodes": [
+        "ComfyUI-Manager",
+        "rgthree-comfy",
+        "ComfyUI-VideoHelperSuite",
+        "was-node-suite-comfyui",
+        "ComfyUI_essentials",
+        "ComfyUI-Easy-Use",
+        "ComfyUI-Custom-Scripts",
+        "ComfyUI-Studio-nodes",
+        "Derfuu_ComfyUI_ModdedNodes",
+        "ComfyUI-KJNodes"
+      ],
+      "models": [],
+      "notes": "Shared app shell, media plumbing, gallery, LoRA library, Ollama models, and common ComfyUI helpers."
+    },
+    {
+      "id": "z-image-studio",
+      "label": "Z-Image Studio",
+      "pack": "core",
+      "area": "image",
+      "enabled": true,
+      "tabs": ["image"],
+      "workflows": [
+        "z-image",
+        "z-image-controlnet-pose",
+        "z-image-dual-base",
+        "z-image-dual-detail"
+      ],
+      "custom_nodes": [
+        "rgthree-comfy",
+        "comfyui_controlnet_aux",
+        "ComfyUI-Impact-Pack",
+        "ComfyUI-Impact-Subpack",
+        "ComfyUI-Styles_CSV_Loader",
+        "ComfyUI_LayerStyle",
+        "ComfyUI-Lotus"
+      ],
+      "models": [
+        "z_image_turbo_bf16.safetensors",
+        "qwen_3_4b.safetensors",
+        "z-image-vae.safetensors",
+        "Z-Image-Turbo-Fun-Controlnet-Union.safetensors"
+      ],
+      "notes": "Core image generation and pose-frame helper pipeline used by Steady Dancer."
+    },
+    {
+      "id": "qwen-image",
+      "label": "Qwen Image Tools",
+      "pack": "booster",
+      "area": "image",
+      "enabled": true,
+      "tabs": ["image"],
+      "workflows": [
+        "qwen-edit-2512",
+        "qwen-edit-2509-image-reference",
+        "qwen-multi-angles",
+        "qwen-multi-angles-fast"
+      ],
+      "custom_nodes": [
+        "ComfyUI-qwenmultiangle",
+        "ComfyUI-Florence2",
+        "ComfyUI-segment-anything-2",
+        "ComfyUI-Image-Selector"
+      ],
+      "models": [
+        "Qwen image/edit model family",
+        "Florence2 grounding models",
+        "SAM2 segmentation models"
+      ],
+      "notes": "Qwen image editing, reference-image generation, and multi-angle character views."
+    },
+    {
+      "id": "wan-video",
+      "label": "WAN Video Tools",
+      "pack": "booster",
+      "area": "video",
+      "enabled": true,
+      "tabs": ["video"],
+      "workflows": [
+        "wan21-steady-dancer",
+        "wan22-vid2vid",
+        "wan22-img2vid",
+        "wan22-img2vid-6frames"
+      ],
+      "custom_nodes": [
+        "ComfyUI-WanVideoWrapper",
+        "ComfyUI-WanAnimatePreprocess",
+        "ComfyUI-VideoHelperSuite",
+        "ComfyUI-Frame-Interpolation",
+        "ComfyMath",
+        "comfy_mtb"
+      ],
+      "models": [
+        "clip_vision_h.safetensors",
+        "vitpose-l-wholebody.onnx",
+        "yolov10m.onnx",
+        "Kijai WanVideo Comfy model bundle"
+      ],
+      "notes": "WAN motion transfer, Steady Dancer, img2vid, vid2vid, interpolation, and WAN preprocessing."
+    },
+    {
+      "id": "ltx-video",
+      "label": "LTX Video Tools",
+      "pack": "booster",
+      "area": "video",
+      "enabled": true,
+      "tabs": ["video"],
+      "workflows": [
+        "ltx-flf",
+        "ltx-img2vid"
+      ],
+      "custom_nodes": [
+        "ComfyUI-LTXVideo",
+        "ComfyMath",
+        "comfy_mtb",
+        "ComfyUI-VideoHelperSuite"
+      ],
+      "models": [
+        "LTX 2.3 model family"
+      ],
+      "notes": "LTX first/last-frame and image-to-video workflows."
+    },
+    {
+      "id": "flux-klein",
+      "label": "FLUX2 Klein",
+      "pack": "booster",
+      "area": "image",
+      "enabled": true,
+      "tabs": ["image"],
+      "workflows": [
+        "flux2klein-txt2img"
+      ],
+      "custom_nodes": [
+        "rgthree-comfy",
+        "ComfyUI-Styles_CSV_Loader",
+        "ComfyUI_essentials"
+      ],
+      "models": [
+        "FLUX2 Klein model family"
+      ],
+      "notes": "Experimental FLUX2 Klein txt2img workflow with stricter LoRA safety filtering."
+    }
+  ]
+}

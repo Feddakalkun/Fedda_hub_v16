@@ -1671,6 +1671,7 @@ async def get_ollama_vision_models():
 # Workflow & Generation
 # ─────────────────────────────────────────────
 from workflow_service import workflow_service
+from module_service import module_service
 from model_downloader import model_downloader
 from lora_service import lora_service, _normalize_lora_path
 import threading
@@ -2005,12 +2006,48 @@ async def list_workflows():
         return {
             "success": True,
             "workflows": [
-                {"id": k, "name": v["name"], "description": v.get("description", "")}
+                module_service.annotate_workflow(
+                    k,
+                    {"name": v["name"], "description": v.get("description", "")},
+                )
                 for k, v in mapping.items()
             ]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@app.get("/api/modules")
+async def list_modules(enabled_only: bool = False):
+    """List v16 core and booster modules from the shared manifest."""
+    try:
+        manifest = module_service.load_manifest()
+        return {
+            "success": True,
+            "version": manifest.get("version", 0),
+            "policy": manifest.get("policy", {}),
+            "modules": module_service.list_modules(enabled_only=enabled_only),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/modules/{module_id}")
+async def get_module(module_id: str):
+    """Return one module with validation against workflow and node config."""
+    module = module_service.get_module(module_id)
+    if not module:
+        raise HTTPException(status_code=404, detail=f"Unknown module '{module_id}'")
+    return {"success": True, "module": module}
+
+
+@app.get("/api/modules/workflow/{workflow_id}")
+async def get_workflow_module(workflow_id: str):
+    """Return the module that owns a workflow id, if any."""
+    module = module_service.module_for_workflow(workflow_id)
+    if not module:
+        raise HTTPException(status_code=404, detail=f"No module owns workflow '{workflow_id}'")
+    return {"success": True, "module": module}
 
 @app.get("/api/workflow/node-map/{workflow_id}")
 async def get_workflow_node_map(workflow_id: str):

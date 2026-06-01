@@ -37,3 +37,25 @@ This file is the running trail for v16 modularization work. Add a new entry afte
 - Pulled the same commit into the install test clone at `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\app`.
 - Installed frontend dependencies in the install test clone with `npm ci`.
 - Ran `npm run build` in the install test clone; TypeScript and Vite build passed.
+
+## 2026-06-02 00:18 Europe/Oslo
+
+- Added backend/shared module manifest:
+  - `config/modules.json`
+- Added module ownership loader:
+  - `backend/module_service.py`
+- Added module metadata to `/api/workflow/list` responses while preserving existing `id`, `name`, and `description` fields.
+- Added module API endpoints:
+  - `GET /api/modules`
+  - `GET /api/modules/{module_id}`
+  - `GET /api/modules/workflow/{workflow_id}`
+- Current manifest groups workflows into:
+  - `core-shell`
+  - `z-image-studio`
+  - `qwen-image`
+  - `wan-video`
+  - `ltx-video`
+  - `flux-klein`
+- Validation run:
+  - `python -m py_compile backend\module_service.py backend\server.py`
+  - Module manifest check found 6 modules and no missing workflow or custom node config references.
