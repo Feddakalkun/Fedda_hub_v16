@@ -301,7 +301,7 @@ export function Wan21SteadyDancerPage() {
   const [videoLength, setVideoLength] = usePersistentState('wan21sd_length', 4);
   const [fps, setFps] = usePersistentState('wan21sd_fps', 16);
   const [steps, setSteps] = usePersistentState('wan21sd_steps', 12);
-  const [cfg, setCfg] = usePersistentState('wan21sd_cfg', 5);
+  const [cfg, setCfg] = usePersistentState('wan21sd_cfg', 1);
   const [poseSpatial, setPoseSpatial] = usePersistentState('wan21sd_pose_spatial', 1);
   const [poseTemporal, setPoseTemporal] = usePersistentState('wan21sd_pose_temporal', 1);
   const [seed, setSeed] = usePersistentState('wan21sd_seed', -1);
@@ -743,7 +743,7 @@ export function Wan21SteadyDancerPage() {
             video_length_seconds: videoLength,
             fps,
             steps,
-            cfg,
+            cfg: 1,
             pose_strength_spatial: poseSpatial,
             pose_strength_temporal: poseTemporal,
             seed: seed === -1 ? Math.floor(Math.random() * 10_000_000_000) : seed,
@@ -1022,7 +1022,7 @@ export function Wan21SteadyDancerPage() {
                   <input type="number" min={1} max={80} value={steps} onChange={(event) => setSteps(Number(event.target.value))} className={inputBase} />
                 </Field>
                 <Field label="CFG">
-                  <input type="number" min={0} max={20} step={0.1} value={cfg} onChange={(event) => setCfg(Number(event.target.value))} className={inputBase} />
+                  <input type="number" min={1} max={1} step={0.1} value={Number(cfg) === 1 ? cfg : 1} onChange={() => setCfg(1)} disabled className={inputBase} />
                 </Field>
                 <Field label="Pose spatial">
                   <input type="number" min={0} max={2} step={0.05} value={poseSpatial} onChange={(event) => setPoseSpatial(Number(event.target.value))} className={inputBase} />
