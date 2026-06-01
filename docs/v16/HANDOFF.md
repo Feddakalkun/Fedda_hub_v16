@@ -12,6 +12,9 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 - First frontend module registry has been added at `frontend/src/modules/registry.ts`.
 - App/home/workflow-card navigation now reads from the registry.
 - Frontend dependencies were installed in the v16 repo clone and `npm run build` passed.
+- First modular foundation commit is `e6d01cc`.
+- `main` was pushed to `https://github.com/Feddakalkun/Fedda_hub_v16`.
+- The install clone was fast-forwarded to the same commit and its frontend build passed.
 
 ## Important Constraints
 
@@ -22,11 +25,11 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 
 ## Next Recommended Steps
 
-1. Commit the clone/bootstrap/module-registry foundation.
-2. Sync the committed foundation into `Fedda_hub_v16_install\app`.
-3. Add backend module manifest support so workflows, model preflights, node packs, and installer dependencies can be grouped by module.
-4. Convert installer config (`config/nodes.json`, workflow/model checks, install scripts) to understand core vs booster modules.
-5. Only after the registry is stable, begin moving individual workflow families into module folders.
+1. Add backend module manifest support so workflows, model preflights, node packs, and installer dependencies can be grouped by module.
+2. Convert installer config (`config/nodes.json`, workflow/model checks, install scripts) to understand core vs booster modules.
+3. Replace or bridge `frontend/src/config/navigation.ts` with the new module registry.
+4. Only after the registry is stable, begin moving individual workflow families into module folders.
+5. Keep repo clone and install clone synchronized after each commit.
 
 ## Known Loose Ends
 

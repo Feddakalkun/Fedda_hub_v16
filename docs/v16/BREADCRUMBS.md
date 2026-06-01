@@ -28,3 +28,12 @@ This file is the running trail for v16 modularization work. Add a new entry afte
 - Installed frontend dependencies in the v16 repo clone with `npm ci`.
 - Ran `npm run build` in `frontend`; TypeScript and Vite build passed.
 - NPM audit reported existing dependency issues: 3 moderate and 5 high. No dependency upgrades were made in this pass.
+
+## 2026-06-01 23:52 Europe/Oslo
+
+- Committed first v16 modular foundation:
+  - `e6d01cc chore(v16): bootstrap modular foundation`
+- Pushed `main` to `https://github.com/Feddakalkun/Fedda_hub_v16`.
+- Pulled the same commit into the install test clone at `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\app`.
+- Installed frontend dependencies in the install test clone with `npm ci`.
+- Ran `npm run build` in the install test clone; TypeScript and Vite build passed.
