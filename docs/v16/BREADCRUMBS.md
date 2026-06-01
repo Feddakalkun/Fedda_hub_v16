@@ -91,3 +91,14 @@ This file is the running trail for v16 modularization work. Add a new entry afte
   - `npm run build` in `frontend` passed.
   - `python -m py_compile backend\module_service.py backend\server.py` passed.
   - Vite still warns that the main JS chunk is larger than 500 kB; no code-splitting change was made in this pass.
+
+## 2026-06-02 00:58 Europe/Oslo
+
+- Fixed the one-click installer for v16:
+  - `FEDDA_Installer.bat` now points to `https://github.com/Feddakalkun/Fedda_hub_v16`.
+  - Added full standalone `FEDDA_v16_Installer.bat` in the repo.
+  - Copied standalone test installer to `H:\Fedda-Hub\Fedda_hub_v16\FEDDA_v16_Installer.bat`.
+  - Copied standalone test installer to `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\FEDDA_v16_Installer.bat`.
+- Validation run:
+  - Searched installer/readme files for stale `v15`, `Fedda_hub_v15`, and `FEDDA_v15`; no matches remained in checked files.
+  - Confirmed installer text, log file, and repo URL now use v16.

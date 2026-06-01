@@ -17,6 +17,7 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 - `/api/modules`, `/api/modules/{module_id}`, and `/api/modules/workflow/{workflow_id}` expose module ownership and validation.
 - Installer/update scripts now use `scripts/module_nodes.ps1` to select custom nodes from enabled modules when `config/modules.json` is available.
 - Frontend registry cards now include `sourceModuleId` and workflow ownership hints that point back to `config/modules.json`.
+- The v16 one-click installer has been corrected from v15 and is available as `FEDDA_v16_Installer.bat`.
 - Frontend dependencies were installed in the v16 repo clone and `npm run build` passed.
 - First modular foundation commit is `e6d01cc`.
 - `main` was pushed to `https://github.com/Feddakalkun/Fedda_hub_v16`.
@@ -31,7 +32,7 @@ Turn FEDDA Hub into a modular core + booster-pack architecture while preserving 
 
 ## Next Recommended Steps
 
-1. Commit and push the frontend registry bridge pass if it has not already been committed.
+1. Run a real installer smoke test from `H:\Fedda-Hub\Fedda_hub_v16\Fedda_hub_v16_install\FEDDA_v16_Installer.bat`.
 2. Add module-aware model/preflight specs next to workflow ownership.
 3. Add a small module validation command/script that checks frontend `sourceModuleId` values against backend `config/modules.json`.
 4. Replace or bridge `frontend/src/config/navigation.ts` with the new module registry.
