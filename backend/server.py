@@ -2155,7 +2155,10 @@ async def get_workflow_model_status(workflow_id: str):
         required_wan = _wan_required_models(workflow_id, {})
         wan_preflight = model_downloader.ensure_wan_core_models(required_wan) if required_wan else None
         required_flux2klein = _flux2klein_required_models(workflow_id, {})
-        flux2klein_preflight = model_downloader.ensure_flux2klein_core_models(required_flux2klein) if required_flux2klein else None
+        # FLUX2-Klein workflows carry their own HuggingFaceDownloader node.
+        # Keep model-status observational here; do not start a backend download
+        # or mark the workflow as impossible before Comfy can run that node.
+        flux2klein_preflight = None
         if wan_preflight:
             for item in wan_preflight.get("files", []):
                 files.append({
@@ -2251,20 +2254,11 @@ async def generate(req: GenerateRequest):
 
         required_flux2klein_models = _flux2klein_required_models(req.workflow_id, req.params)
         if required_flux2klein_models:
-            preflight = model_downloader.ensure_flux2klein_core_models(required_flux2klein_models)
-            if not preflight.get("ready", False):
-                missing = [
-                    f for f in preflight.get("files", [])
-                    if f.get("status") != "completed" or not f.get("exists")
-                ]
-                details = ", ".join(
-                    f"{f.get('filename')} -> {f.get('path') or f.get('error') or 'unknown path'}"
-                    for f in missing
-                )
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"FLUX2-Klein model preflight is not ready: {details}. If HuggingFace returns 401 for the main model, install it manually or provide access before retrying.",
-                )
+            print(
+                "[GENERATE] FLUX2-Klein model availability is delegated to "
+                "the workflow HuggingFaceDownloader node: "
+                f"{', '.join(required_flux2klein_models)}"
+            )
 
         # 1. Prepare ComfyUI API payload
         payload = workflow_service.prepare_payload(req.workflow_id, req.params)
