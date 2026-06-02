@@ -28,7 +28,7 @@
       "model": ["701", 0],
       "positive": ["748", 0],
       "negative": ["749", 0],
-      "cfg": 3.0
+      "cfg": 2.2
     },
     "class_type": "CFGGuider"
   },

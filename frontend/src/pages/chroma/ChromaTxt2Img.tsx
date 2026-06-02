@@ -26,7 +26,7 @@ export const ChromaTxt2Img = () => {
       aspectPresets={CHROMA_PRESETS}
       enableLoras={false}
       defaultSteps={40}
-      defaultCfg={3.0}
+      defaultCfg={2.2}
       defaultNegative="low quality, ugly, unfinished, out of focus, deformed, disfigure, blurry, smudged, restricted palette, flat colors"
       quickModes={CHROMA_QUICK_MODES}
       maxSteps={60}
