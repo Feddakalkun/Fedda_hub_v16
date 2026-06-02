@@ -1,5 +1,14 @@
 # FEDDA Hub v16 Handoff
 
+## Latest Update - Workflow Standard Baseline
+
+- New workflows should follow `docs/v16/WORKFLOW_STANDARD.md`.
+- Use `backend/workflows/HF-downloader/HFdownloadernode.json` as the reusable downloader template for model-backed workflows.
+- Update its `download_links` with exact HuggingFace URLs and Comfy target folders.
+- Do not hard-block `/api/generate` before Comfy can run a workflow-owned `HuggingFaceDownloader` node.
+- Validate new workflows with `python dev_tools/validate_workflow_standard.py --workflow-id <id>` and use `--require-downloader` for model-backed workflows.
+- Chroma should be added next as a booster-style workflow/module using this standard.
+
 ## Current Goal
 
 Turn FEDDA Hub into a modular core + booster-pack architecture while preserving the working v15 behavior.

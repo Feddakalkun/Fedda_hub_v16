@@ -1,5 +1,21 @@
 # FEDDA Hub v16 Breadcrumbs
 
+## 2026-06-02 - Workflow Standard Baseline
+
+- Added a reusable workflow standard document:
+  - `docs/v16/WORKFLOW_STANDARD.md`
+- Added the reusable HuggingFace downloader node template to git:
+  - `backend/workflows/HF-downloader/HFdownloadernode.json`
+- Added a validator for new app-facing workflow mappings/files:
+  - `dev_tools/validate_workflow_standard.py`
+- Intent: future workflows, especially Chroma, should start from a consistent pattern:
+  - workflow-owned `HuggingFaceDownloader` for model bootstrap
+  - observable model status
+  - no backend hard-block when the workflow can download its own models
+  - stable `config/workflow_api.json` input mapping
+  - module ownership through `config/modules.json`
+
+
 This file is the running trail for v16 modularization work. Add a new entry after every meaningful update so another agent can backtrack without guessing.
 
 ## 2026-06-01 23:31 Europe/Oslo
