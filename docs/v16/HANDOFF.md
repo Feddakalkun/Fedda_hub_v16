@@ -21,6 +21,13 @@
 - Frontend page: `frontend/src/pages/chroma/ChromaTxt2Img.tsx`.
 - Chroma LoRA UI is disabled in this first pass; add it only after testing the correct Chroma LoRA loader.
 
+## Latest Update - Chroma Quality Defaults Fix
+
+- Chroma initially looked bad because `Txt2ImgPage` had a hard-coded `cfg = 1.0` meant for Z-Image.
+- `Txt2ImgPage` now supports workflow-specific CFG, negative prompt, quick modes, and max steps.
+- Chroma now sends CFG `3.0` and defaults to `40` steps.
+- There is a one-time localStorage migration for `chroma_txt2img` to replace early bad defaults in browsers that already tested Chroma.
+
 ## Current Goal
 
 Turn FEDDA Hub into a modular core + booster-pack architecture while preserving the working v15 behavior.

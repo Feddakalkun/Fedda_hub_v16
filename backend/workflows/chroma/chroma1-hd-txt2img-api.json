@@ -28,7 +28,7 @@
       "model": ["701", 0],
       "positive": ["748", 0],
       "negative": ["749", 0],
-      "cfg": 3.8
+      "cfg": 3.0
     },
     "class_type": "CFGGuider"
   },
@@ -118,7 +118,7 @@
   "749": {
     "inputs": {
       "clip": ["741", 0],
-      "text": "low quality, blurry, distorted, bad anatomy, unfinished sketch, watermark, text"
+      "text": "low quality, ugly, unfinished, out of focus, deformed, disfigure, blurry, smudged, restricted palette, flat colors"
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -128,7 +128,7 @@
   "751": {
     "inputs": {
       "model": ["701", 0],
-      "steps": 26,
+      "steps": 40,
       "alpha": 0.45,
       "beta": 0.45
     },

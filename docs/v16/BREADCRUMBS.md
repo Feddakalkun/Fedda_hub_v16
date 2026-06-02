@@ -35,6 +35,25 @@
   - `npm run build` in `frontend`
   - backend payload injection smoke test for prompt, negative, size, seed, steps, cfg, sampler, and output prefix.
 
+## 2026-06-02 - Chroma Quality Defaults Fix
+
+- Fixed first Chroma output quality issue caused by inheriting Z-Image's CFG lock.
+- `Txt2ImgPage` now accepts workflow-specific defaults:
+  - `defaultCfg`
+  - `defaultNegative`
+  - `quickModes`
+  - `maxSteps`
+- Chroma now defaults to README-style quality settings:
+  - CFG `3.0`
+  - steps `40`
+  - stronger negative prompt
+- Added a one-time browser storage migration for `chroma_txt2img` so earlier test values do not keep forcing weak defaults.
+- Verification:
+  - Chroma standard validator passed.
+  - All workflow standard validation passed.
+  - Chroma payload test confirmed CFG `3.0` and steps `40`.
+  - Frontend build passed.
+
 
 This file is the running trail for v16 modularization work. Add a new entry after every meaningful update so another agent can backtrack without guessing.
 

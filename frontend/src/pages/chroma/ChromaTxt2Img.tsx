@@ -7,6 +7,12 @@ const CHROMA_PRESETS = [
   { label: 'Tall', w: 832, h: 1488 },
 ];
 
+const CHROMA_QUICK_MODES = [
+  { label: 'Official', steps: 26, hint: 'Comfy graph' },
+  { label: 'Quality', steps: 40, hint: 'README' },
+  { label: 'Detail', steps: 50, hint: 'Slower' },
+];
+
 export const ChromaTxt2Img = () => {
   return (
     <Txt2ImgPage
@@ -19,7 +25,11 @@ export const ChromaTxt2Img = () => {
       loraPacks={[]}
       aspectPresets={CHROMA_PRESETS}
       enableLoras={false}
-      defaultSteps={26}
+      defaultSteps={40}
+      defaultCfg={3.0}
+      defaultNegative="low quality, ugly, unfinished, out of focus, deformed, disfigure, blurry, smudged, restricted palette, flat colors"
+      quickModes={CHROMA_QUICK_MODES}
+      maxSteps={60}
     />
   );
 };
