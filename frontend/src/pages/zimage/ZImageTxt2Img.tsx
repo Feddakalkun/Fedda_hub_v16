@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, Maximize2, Loader2, RefreshCw, Plus, Upload,
-  ChevronLeft, Expand, ChevronDown, ChevronUp,
+  ChevronLeft, Expand, ChevronDown, ChevronUp, CheckCircle2, AlertCircle,
 } from 'lucide-react';
 import { PromptAssistant } from '../../components/ui/PromptAssistant';
 import { LoraCharacterCard } from '../../components/ui/LoraCharacterCard';
@@ -19,9 +19,27 @@ const PRESETS = [
   { label: '9:16', w: 896,  h: 1152 },
 ];
 
+const QUICK_MODES = [
+  { label: 'Fast',     steps: 6,  hint: 'Draft ideas' },
+  { label: 'Balanced', steps: 11, hint: 'Default' },
+  { label: 'Detail',   steps: 18, hint: 'Slower' },
+];
+
 type ZImageLoraEntry = {
   name: string;
   strength: number;
+};
+
+type WorkflowModelStatus = {
+  ready: boolean;
+  missing_count: number;
+  files?: Array<{
+    filename?: string;
+    exists?: boolean;
+    status?: string;
+    path?: string;
+    error?: string | null;
+  }>;
 };
 
 interface Txt2ImgPageConfig {
@@ -109,6 +127,8 @@ export const Txt2ImgPage = ({
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageName, setUploadedImageName] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [modelStatus, setModelStatus] = useState<WorkflowModelStatus | null>(null);
+  const [modelStatusError, setModelStatusError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { toast } = useToast();
@@ -129,6 +149,28 @@ export const Txt2ImgPage = ({
       setAvailableLoras(filtered);
     }).catch(() => {});
   }, [loraPrefixes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchModelStatus = async () => {
+      try {
+        const res = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.WORKFLOW_MODEL_STATUS}/${workflowId}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!data?.success) throw new Error(data?.detail || 'Model status unavailable');
+        setModelStatus(data);
+        setModelStatusError(null);
+      } catch (err: any) {
+        if (!cancelled) setModelStatusError(err.message || 'Model status unavailable');
+      }
+    };
+    fetchModelStatus();
+    const interval = window.setInterval(fetchModelStatus, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [workflowId]);
 
   useEffect(() => {
     const fetchCatalog = async (packKey: string) => {
@@ -332,18 +374,35 @@ export const Txt2ImgPage = ({
     return byFile ?? null;
   };
 
+  const missingModels = modelStatus?.files?.filter((file) => !file.exists) ?? [];
+
   return (
     <>
     <div className="flex h-full bg-[#080808] overflow-hidden">
 
       {/* ══════════════ LEFT PANEL ══════════════ */}
-      <div className="flex-1 min-w-0 flex flex-col border-r border-white/[0.04] overflow-y-auto custom-scrollbar">
-        <div className="px-6 py-6 space-y-6">
+      <div className="flex-1 min-w-0 flex flex-col overflow-y-auto custom-scrollbar">
+        <div className="mx-auto w-full max-w-[1180px] px-4 py-4 space-y-4">
 
           {/* Header */}
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{familyLabel}</span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{familyLabel}</span>
+            </div>
+            {modelStatusError ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                <AlertCircle className="h-3 w-3" /> Status unknown
+              </span>
+            ) : modelStatus?.ready ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-500/25 bg-zinc-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-200">
+                <CheckCircle2 className="h-3 w-3" /> Models ready
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-amber-200">
+                <Loader2 className="h-3 w-3 animate-spin" /> Checking models
+              </span>
+            )}
           </div>
 
           {/* Top preview strip */}
@@ -372,7 +431,7 @@ export const Txt2ImgPage = ({
                         <button
                           key={`z-preview-${idx}`}
                           onClick={() => openImage(url)}
-                          className={`group relative h-24 w-24 shrink-0 rounded-xl border overflow-hidden transition-all ${
+                          className={`group relative h-16 w-16 shrink-0 rounded-lg border overflow-hidden transition-all ${
                             currentImage === url
                               ? 'ring-1 ring-emerald-400/50 border-emerald-400/40'
                               : 'border-white/15 bg-black/40 hover:border-emerald-400/50'
@@ -456,10 +515,43 @@ export const Txt2ImgPage = ({
             value={prompt}
             onChange={setPrompt}
             placeholder="Describe the subject, mood, lighting…"
-            minRows={5}
+            minRows={3}
             accent={accent}
             label="Prompt"
           />
+
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">Quick setup</div>
+                <div className="mt-0.5 text-[10px] text-white/25">CFG locked to 1.0.</div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_MODES.map((mode) => (
+                  <button
+                    key={mode.label}
+                    onClick={() => setSteps(mode.steps)}
+                    className={`rounded-lg border px-2.5 py-1.5 text-left transition-all ${
+                      steps === mode.steps
+                        ? 'border-zinc-300/40 bg-zinc-200 text-black'
+                        : 'border-white/[0.07] bg-black/30 text-white/45 hover:border-white/20 hover:text-white/75'
+                    }`}
+                  >
+                    <div className="text-[9px] font-black uppercase tracking-wider">{mode.label}</div>
+                    <div className={`mt-0.5 text-[8px] font-mono ${steps === mode.steps ? 'text-black/60' : 'text-white/20'}`}>
+                      {mode.steps} steps | {mode.hint}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {missingModels.length > 0 && (
+              <div className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-100/75">
+                Missing model files: {missingModels.slice(0, 3).map((file) => file.filename).join(', ')}
+                {missingModels.length > 3 ? ` +${missingModels.length - 3} more` : ''}
+              </div>
+            )}
+          </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -467,7 +559,13 @@ export const Txt2ImgPage = ({
               <span className="text-[8px] font-mono text-white/20">{loraEntries.length || 1}/6</span>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {availableLoras.length === 0 && (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10px] text-white/30">
+                No compatible {familyLabel} LoRAs are installed yet. You can generate without LoRAs, then add character packs later from LoRA & Character.
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {(loraEntries.length > 0 ? loraEntries : [{ name: '', strength: 1.0 }]).map((entry, idx) => (
                 <LoraCharacterCard
                   key={`zimage-lora-card-${idx}`}
@@ -477,6 +575,7 @@ export const Txt2ImgPage = ({
                   options={availableLoras}
                   previewUrl={getLoraPreview(entry.name)}
                   accent={accent}
+                  compact
                   onChange={(name) => {
                     setLoraEntries((prev) => {
                       const source = prev.length > 0 ? [...prev] : [{ name: '', strength: 1.0 }];
@@ -511,61 +610,57 @@ export const Txt2ImgPage = ({
 
           <div className="h-px bg-white/[0.04]" />
 
-          {/* Dimensions */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <Maximize2 className="w-3 h-3 text-white/15" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">Dimensions</span>
+          <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+            <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+              <div className="flex items-center gap-1.5">
+                <Maximize2 className="w-3 h-3 text-white/15" />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">Size</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {aspectPresets.map(r => (
+                  <button key={r.label}
+                    onClick={() => { setWidth(r.w); setHeight(r.h); }}
+                    className={`py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-wider transition-all ${
+                      width === r.w && height === r.h
+                        ? 'bg-zinc-200 border-zinc-300/40 text-black'
+                        : 'bg-white/[0.02] border-white/[0.06] text-white/25 hover:text-white/60 hover:border-white/15'
+                    }`}>{r.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[['W', width, setWidth], ['H', height, setHeight]].map(([label, val, fn]) => (
+                  <div key={label as string} className="grid grid-cols-[22px_1fr] items-center gap-1">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-white/15">{label as string}</span>
+                    <input type="number" value={val as number} onChange={e => (fn as (v: number) => void)(Number(e.target.value))}
+                      className="w-full bg-black/25 border border-white/[0.06] rounded-lg px-2 py-1.5 text-[11px] font-mono text-white/50 focus:border-white/20 outline-none" />
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {aspectPresets.map(r => (
-                <button key={r.label}
-                  onClick={() => { setWidth(r.w); setHeight(r.h); }}
-                  className={`py-2 rounded-lg border text-[8px] font-black uppercase tracking-wider transition-all ${
-                    width === r.w && height === r.h
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-white/[0.02] border-white/[0.06] text-white/20 hover:text-white/50 hover:border-white/15'
-                  }`}>{r.label}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[['W', width, setWidth], ['H', height, setHeight]].map(([label, val, fn]) => (
-                <div key={label as string} className="space-y-1">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/15">{label as string}</span>
-                  <input type="number" value={val as number} onChange={e => (fn as (v: number) => void)(Number(e.target.value))}
-                    className="w-full bg-white/[0.02] border border-white/[0.06] rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-white/50 focus:border-emerald-500/20 outline-none" />
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Steps */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.2em] text-white/25">
-              <span>Steps</span>
-              <span className="text-emerald-400/70 font-mono">{steps}</span>
+            <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+              <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.2em] text-white/25">
+                <span>Steps</span>
+                <span className="text-zinc-300/80 font-mono">{steps}</span>
+              </div>
+              <input type="range" min="1" max="25" step="1" value={steps}
+                onChange={e => setSteps(Number(e.target.value))}
+                className="w-full h-1 rounded-full appearance-none outline-none accent-zinc-300 cursor-pointer" />
             </div>
-            <input type="range" min="1" max="25" step="1" value={steps}
-              onChange={e => setSteps(Number(e.target.value))}
-              className="w-full h-1 rounded-full appearance-none outline-none accent-emerald-500 cursor-pointer" />
-            <div className="flex justify-between text-[8px] font-mono text-white/10">
-              <span>1</span><span>25</span>
-            </div>
-          </div>
 
-          {/* Seed */}
-          <div className="flex gap-2">
-            <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}
-              className="flex-1 bg-white/[0.02] border border-white/[0.06] rounded-xl py-2.5 px-3 text-[11px] font-mono text-white/40 focus:border-emerald-500/20 outline-none" />
-            <button onClick={() => setSeed(-1)}
-              className={`p-2.5 rounded-xl border transition-all ${
-                seed === -1
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-white/[0.02] border-white/[0.06] text-white/20 hover:text-white/50'
-              }`}>
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+              <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}
+                className="min-w-0 flex-1 bg-black/25 border border-white/[0.06] rounded-xl py-2 px-3 text-[11px] font-mono text-white/45 focus:border-white/20 outline-none" />
+              <button onClick={() => setSeed(-1)}
+                className={`p-2 rounded-xl border transition-all ${
+                  seed === -1
+                    ? 'bg-zinc-200 border-zinc-300/40 text-black'
+                    : 'bg-white/[0.02] border-white/[0.06] text-white/25 hover:text-white/60'
+                }`}>
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Negative — collapsible */}
@@ -584,12 +679,12 @@ export const Txt2ImgPage = ({
           </div>
 
           {/* Generate */}
-          <div className="pb-6">
+          <div className="pb-3">
             <button disabled={!prompt.trim() || isGenerating} onClick={handleGenerate}
-              className={`w-full py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.35em] transition-all duration-300 flex items-center justify-center gap-3 ${
+              className={`w-full py-3.5 rounded-xl font-black text-[11px] uppercase tracking-[0.28em] transition-all duration-300 flex items-center justify-center gap-3 ${
                 !prompt.trim() || isGenerating
                   ? 'bg-white/[0.03] text-white/10 cursor-not-allowed border border-white/[0.04]'
-                  : 'bg-emerald-500 text-black hover:bg-emerald-400 hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] active:scale-[0.98]'
+                  : 'bg-zinc-200 text-black hover:bg-white active:scale-[0.98]'
               }`}>
               {isGenerating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Generating…</span></>

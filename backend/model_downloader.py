@@ -73,6 +73,23 @@ class ModelDownloader:
                 "min_bytes": 10 * 1024 * 1024,
             },
         }
+        self.flux2klein_core_specs: Dict[str, Dict[str, Any]] = {
+            "flux-2-klein-9b-fp8.safetensors": {
+                "relative_dir": Path("diffusion_models"),
+                "url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-9b-fp8/resolve/main/flux-2-klein-9b-fp8.safetensors",
+                "min_bytes": 10 * 1024 * 1024,
+            },
+            "qwen_3_8b_fp8mixed.safetensors": {
+                "relative_dir": Path("text_encoders"),
+                "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+                "min_bytes": 10 * 1024 * 1024,
+            },
+            "flux2-vae.safetensors": {
+                "relative_dir": Path("vae"),
+                "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors",
+                "min_bytes": 5 * 1024 * 1024,
+            },
+        }
 
     def get_progress(self, filename: str) -> dict:
         with self.lock:
@@ -196,6 +213,42 @@ class ModelDownloader:
 
         for filename in names:
             spec = self.wan_core_specs.get(filename)
+            if not spec:
+                file_states.append({
+                    "filename": filename,
+                    "status": "unknown",
+                    "error": "No download spec found for this model",
+                })
+                continue
+
+            dest_path = self._dest_path_for_spec(spec, filename)
+            min_bytes = int(spec.get("min_bytes", 10240))
+            status = self._start_download_if_needed(filename, dest_path, str(spec["url"]), min_bytes)
+            progress = self.get_progress(filename)
+
+            file_states.append({
+                "filename": filename,
+                "status": status,
+                "progress": int(progress.get("progress", 0)),
+                "path": str(dest_path),
+                "exists": self._is_valid_file(dest_path, min_bytes=min_bytes),
+                "error": progress.get("error"),
+            })
+
+        ready = bool(file_states) and all(f["status"] == "completed" and f["exists"] for f in file_states)
+        return {
+            "success": True,
+            "ready": ready,
+            "files": file_states,
+        }
+
+    def ensure_flux2klein_core_models(self, required_filenames: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Ensure FLUX2-Klein core model files are present before queueing Comfy."""
+        names = required_filenames or list(self.flux2klein_core_specs.keys())
+        file_states: List[Dict[str, Any]] = []
+
+        for filename in names:
+            spec = self.flux2klein_core_specs.get(filename)
             if not spec:
                 file_states.append({
                     "filename": filename,

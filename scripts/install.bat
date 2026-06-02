@@ -128,7 +128,7 @@ if "%HAS_OLLAMA%"=="1" (
 if exist "%BASE_DIR%\python_embeded\python.exe" (
     echo.
     echo   [NOTE] Full install already detected (python_embeded found^).
-    echo          Run UPDATE_APP.bat to update, or delete python_embeded to reinstall.
+    echo          Run UPDATE.bat from the install root to update, or delete python_embeded to reinstall.
     echo.
     pause
     exit /b 0
@@ -136,7 +136,7 @@ if exist "%BASE_DIR%\python_embeded\python.exe" (
 if exist "%BASE_DIR%\venv\Scripts\python.exe" (
     echo.
     echo   [NOTE] Lite install already detected (venv found^).
-    echo          Run UPDATE_APP.bat to update, or delete venv to reinstall.
+    echo          Run UPDATE.bat from the install root to update, or delete venv to reinstall.
     echo.
     pause
     exit /b 0
@@ -280,7 +280,7 @@ echo ===========================================================================
 echo   INSTALLATION COMPLETE!
 echo ============================================================================
 echo.
-echo   To start FEDDA, run:  RUN.bat
+echo   To start FEDDA, run:  RUN.bat from the install root
 echo.
 echo   Log files saved to: %BASE_DIR%\logs\
 echo     - install_report.txt      Quick summary of what was installed

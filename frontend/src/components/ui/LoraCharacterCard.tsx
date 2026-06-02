@@ -8,6 +8,7 @@ interface LoraCharacterCardProps {
   options: string[];
   previewUrl?: string | null;
   accent?: 'violet' | 'emerald';
+  compact?: boolean;
   onChange: (value: string) => void;
   onStrengthChange: (value: number) => void;
   onRemove?: () => void;
@@ -42,6 +43,7 @@ export const LoraCharacterCard = ({
   options,
   previewUrl,
   accent = 'emerald',
+  compact = false,
   onChange,
   onStrengthChange,
   onRemove,
@@ -58,24 +60,31 @@ export const LoraCharacterCard = ({
   const title = value ? toLabel(value) : 'Select character LoRA';
 
   return (
-    <div className={`rounded-2xl border bg-white/[0.02] p-2.5 space-y-2.5 ${value ? token.border : 'border-white/[0.08]'}`}>
-      <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-white/[0.08] bg-black/30">
-        {previewUrl ? (
-          <img src={previewUrl} alt={title} className="h-full w-full object-cover object-center" />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-white/[0.08] to-black/30 flex items-center justify-center">
-            <UserRound className="h-5 w-5 text-white/25" />
+    <div className={`${compact ? 'rounded-xl p-2 space-y-2' : 'rounded-2xl p-2.5 space-y-2.5'} border bg-white/[0.02] ${value ? token.border : 'border-white/[0.08]'}`}>
+      {!compact && (
+        <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-white/[0.08] bg-black/30">
+          {previewUrl ? (
+            <img src={previewUrl} alt={title} className="h-full w-full object-cover object-center" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-white/[0.08] to-black/30 flex items-center justify-center">
+              <UserRound className="h-5 w-5 text-white/25" />
+            </div>
+          )}
+          <div className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white/70">
+            LoRA {index + 1}
           </div>
-        )}
-        <div className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white/70">
-          LoRA {index + 1}
         </div>
-      </div>
+      )}
 
       <div className="flex items-center gap-2">
+        {compact && (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-black/30 text-[9px] font-black text-white/35">
+            {index + 1}
+          </div>
+        )}
         <button
           onClick={() => setOpen((v) => !v)}
-          className={`flex-1 rounded-xl border px-2.5 py-2 text-left text-[11px] font-semibold transition-all ${
+          className={`flex-1 rounded-xl border px-2.5 ${compact ? 'py-1.5' : 'py-2'} text-left text-[11px] font-semibold transition-all ${
             value ? token.active : 'border-white/[0.08] bg-white/[0.02] text-white/45 hover:text-white/75'
           }`}
         >
@@ -87,7 +96,7 @@ export const LoraCharacterCard = ({
         {onRemove && (
           <button
             onClick={onRemove}
-            className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-2 text-white/30 transition-colors hover:border-red-500/30 hover:text-red-400"
+            className={`rounded-lg border border-white/[0.08] bg-white/[0.02] ${compact ? 'p-1.5' : 'p-2'} text-white/30 transition-colors hover:border-red-500/30 hover:text-red-400`}
             title="Remove LoRA"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -106,7 +115,7 @@ export const LoraCharacterCard = ({
               className={`w-full rounded-lg border border-white/[0.08] bg-black/30 py-2 pl-8 pr-3 text-[11px] text-white/70 placeholder-white/20 outline-none ${token.ring}`}
             />
           </div>
-          <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+          <div className={`${compact ? 'max-h-32' : 'max-h-40'} overflow-y-auto custom-scrollbar space-y-1`}>
             <button
               onClick={() => { onChange(''); setOpen(false); }}
               className="w-full rounded-lg px-2.5 py-2 text-left text-[11px] text-white/40 transition-colors hover:bg-white/[0.05] hover:text-white/80"
@@ -128,10 +137,9 @@ export const LoraCharacterCard = ({
         </div>
       )}
 
-      <div className="space-y-1.5">
+      <div className={compact ? 'grid grid-cols-[auto_1fr_auto] items-center gap-2' : 'space-y-1.5'}>
         <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-white/20">
           <span>Strength</span>
-          <span className={`font-mono ${token.badge}`}>{strength.toFixed(2)}</span>
         </div>
         <input
           type="range"
@@ -142,6 +150,7 @@ export const LoraCharacterCard = ({
           onChange={(e) => onStrengthChange(Number(e.target.value))}
           className={`w-full h-1 appearance-none rounded-full outline-none cursor-pointer ${token.slider}`}
         />
+        <span className={`text-[9px] font-mono ${token.badge}`}>{strength.toFixed(2)}</span>
       </div>
 
       {value && (

@@ -1743,6 +1743,17 @@ def _wan_required_models(workflow_id: str, params: Dict[str, Any]) -> List[str]:
     return ["clip_vision_h.safetensors", "vitpose-l-wholebody.onnx", "yolov10m.onnx"]
 
 
+def _flux2klein_required_models(workflow_id: str, params: Dict[str, Any]) -> List[str]:
+    """Resolve FLUX2-Klein model files so the UI gets precise missing-file feedback."""
+    if workflow_id != "flux2klein-txt2img":
+        return []
+    return [
+        "flux-2-klein-9b-fp8.safetensors",
+        "qwen_3_8b_fp8mixed.safetensors",
+        "flux2-vae.safetensors",
+    ]
+
+
 def _comfy_input_dir() -> Path:
     path = COMFY_DIR / "input"
     path.mkdir(parents=True, exist_ok=True)
@@ -2143,6 +2154,8 @@ async def get_workflow_model_status(workflow_id: str):
         files = _parse_workflow_download_links(workflow)
         required_wan = _wan_required_models(workflow_id, {})
         wan_preflight = model_downloader.ensure_wan_core_models(required_wan) if required_wan else None
+        required_flux2klein = _flux2klein_required_models(workflow_id, {})
+        flux2klein_preflight = model_downloader.ensure_flux2klein_core_models(required_flux2klein) if required_flux2klein else None
         if wan_preflight:
             for item in wan_preflight.get("files", []):
                 files.append({
@@ -2157,6 +2170,21 @@ async def get_workflow_model_status(workflow_id: str):
                     "status": item.get("status"),
                     "error": item.get("error"),
                 })
+        if flux2klein_preflight:
+            for item in flux2klein_preflight.get("files", []):
+                item_path = Path(str(item.get("path", "")))
+                files.append({
+                    "node_id": "preflight",
+                    "node_title": "FEDDA FLUX2-Klein preflight",
+                    "url": "",
+                    "folder": str(item_path.parent.name),
+                    "filename": item.get("filename"),
+                    "path": item.get("path"),
+                    "exists": bool(item.get("exists")),
+                    "size_bytes": item_path.stat().st_size if item.get("exists") else 0,
+                    "status": item.get("status"),
+                    "error": item.get("error"),
+                })
         missing = [f for f in files if not f.get("exists")]
         return {
             "success": True,
@@ -2167,6 +2195,7 @@ async def get_workflow_model_status(workflow_id: str):
             "missing_count": len(missing),
             "files": files,
             "wan_preflight": wan_preflight,
+            "flux2klein_preflight": flux2klein_preflight,
         }
     except HTTPException:
         raise
@@ -2218,6 +2247,23 @@ async def generate(req: GenerateRequest):
                 raise HTTPException(
                     status_code=409,
                     detail=f"Auto-downloading required WAN model(s): {names}. Please retry when download completes.",
+                )
+
+        required_flux2klein_models = _flux2klein_required_models(req.workflow_id, req.params)
+        if required_flux2klein_models:
+            preflight = model_downloader.ensure_flux2klein_core_models(required_flux2klein_models)
+            if not preflight.get("ready", False):
+                missing = [
+                    f for f in preflight.get("files", [])
+                    if f.get("status") != "completed" or not f.get("exists")
+                ]
+                details = ", ".join(
+                    f"{f.get('filename')} -> {f.get('path') or f.get('error') or 'unknown path'}"
+                    for f in missing
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"FLUX2-Klein model preflight is not ready: {details}. If HuggingFace returns 401 for the main model, install it manually or provide access before retrying.",
                 )
 
         # 1. Prepare ComfyUI API payload
