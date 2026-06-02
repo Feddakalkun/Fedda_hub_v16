@@ -2,7 +2,7 @@ import { Bot, Film, Images, LayoutDashboard, Sparkles, Video, type LucideIcon } 
 
 export type ModulePack = 'core' | 'booster';
 export type ModuleArea = 'home' | 'image' | 'video' | 'system';
-export type SourceModuleId = 'core-shell' | 'z-image-studio' | 'qwen-image' | 'wan-video' | 'ltx-video' | 'flux-klein';
+export type SourceModuleId = 'core-shell' | 'z-image-studio' | 'chroma-image' | 'qwen-image' | 'wan-video' | 'ltx-video' | 'flux-klein';
 
 export interface FeddaModule {
   id: string;
@@ -118,6 +118,20 @@ export const FEDDA_MODULES: FeddaModule[] = [
     defaultTab: 'z-image-dual-lora',
     Icon: Sparkles,
     card: { poster: '/cards/deep-teal/z-image-dual-lora.jpg' },
+  },
+  {
+    id: 'chroma1-hd',
+    sourceModuleId: 'chroma-image',
+    label: 'Chroma1-HD',
+    description: 'Official Lodestones Chroma1-HD text-to-image base workflow.',
+    area: 'image',
+    pack: 'booster',
+    enabled: true,
+    tabs: ['chroma', 'chroma-txt2img'],
+    workflows: ['chroma1-hd-txt2img'],
+    defaultTab: 'chroma-txt2img',
+    Icon: Sparkles,
+    card: { poster: '/cards/deep-teal/image-studio.jpg' },
   },
   {
     id: 'flux2-klein',

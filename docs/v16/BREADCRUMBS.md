@@ -15,6 +15,26 @@
   - stable `config/workflow_api.json` input mapping
   - module ownership through `config/modules.json`
 
+## 2026-06-02 - Chroma1-HD Base Workflow
+
+- Added first Chroma booster workflow:
+  - `backend/workflows/chroma/chroma1-hd-txt2img-api.json`
+- Added Chroma app mapping:
+  - workflow id `chroma1-hd-txt2img`
+  - model status via workflow-owned `HuggingFaceDownloader`
+  - output prefix `IMAGE/CHROMA/0`
+- Added Chroma module ownership:
+  - `config/modules.json` module id `chroma-image`
+- Added Chroma Image Studio entry:
+  - `frontend/src/pages/chroma/ChromaTxt2Img.tsx`
+  - `frontend/src/modules/registry.ts`
+- First Chroma version intentionally has LoRA UI disabled until the correct Chroma LoRA loader path is tested.
+- Verification:
+  - `python dev_tools/validate_workflow_standard.py --workflow-id chroma1-hd-txt2img --require-downloader`
+  - `python dev_tools/validate_workflow_standard.py --all`
+  - `npm run build` in `frontend`
+  - backend payload injection smoke test for prompt, negative, size, seed, steps, cfg, sampler, and output prefix.
+
 
 This file is the running trail for v16 modularization work. Add a new entry after every meaningful update so another agent can backtrack without guessing.
 

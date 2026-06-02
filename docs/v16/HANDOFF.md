@@ -9,6 +9,18 @@
 - Validate new workflows with `python dev_tools/validate_workflow_standard.py --workflow-id <id>` and use `--require-downloader` for model-backed workflows.
 - Chroma should be added next as a booster-style workflow/module using this standard.
 
+## Latest Update - Chroma1-HD Base
+
+- Chroma1-HD base txt2img has been added as workflow id `chroma1-hd-txt2img`.
+- Workflow file: `backend/workflows/chroma/chroma1-hd-txt2img-api.json`.
+- Uses official Lodestones Chroma1-HD full model URL because the fp8 rev2 URL embedded in the official markdown currently resolves 404.
+- Required downloader links:
+  - `Chroma1-HD.safetensors` -> `models/diffusion_models`
+  - `flan-t5-xxl_float8_e4m3fn_scaled_stochastic.safetensors` -> `models/text_encoders`
+  - `ae.safetensors` -> `models/vae`
+- Frontend page: `frontend/src/pages/chroma/ChromaTxt2Img.tsx`.
+- Chroma LoRA UI is disabled in this first pass; add it only after testing the correct Chroma LoRA loader.
+
 ## Current Goal
 
 Turn FEDDA Hub into a modular core + booster-pack architecture while preserving the working v15 behavior.

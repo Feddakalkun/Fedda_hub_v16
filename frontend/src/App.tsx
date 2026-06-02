@@ -52,7 +52,7 @@ function FeddaApp() {
     if (activeTab === 'gallery') return <GalleryPage />;
     if (activeTab === 'library') return <LibraryPage />;
     if (activeTab === 'ollama') return <OllamaModelsPage />;
-    if (activeTab === 'image' || activeTab.startsWith('z-image') || activeTab.startsWith('flux') || activeTab.startsWith('qwen')) {
+    if (activeTab === 'image' || activeTab.startsWith('z-image') || activeTab.startsWith('chroma') || activeTab.startsWith('flux') || activeTab.startsWith('qwen')) {
       return <ImageStudioPage activeTab={activeTab} />;
     }
     return <VideoStudioPage activeTab={activeTab} />;

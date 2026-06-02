@@ -55,6 +55,8 @@ interface Txt2ImgPageConfig {
   requireImageUpload?: boolean;
   imageParamKey?: string;
   imageLabel?: string;
+  enableLoras?: boolean;
+  defaultSteps?: number;
 }
 
 type LoraCatalogItem = {
@@ -104,13 +106,15 @@ export const Txt2ImgPage = ({
   requireImageUpload = false,
   imageParamKey = 'image',
   imageLabel = 'Reference Image',
+  enableLoras = true,
+  defaultSteps = 11,
 }: Txt2ImgPageConfig) => {
   const key = (name: string) => `${storageKey}_${name}`;
   const [prompt, setPrompt]                   = usePersistentState(key('prompt'), '');
   const [negativePrompt, setNegativePrompt]   = usePersistentState(key('negative'), 'blurry, ugly, bad proportions, low quality, artifacts');
   const [width, setWidth]                     = usePersistentState(key('width'), 1024);
   const [height, setHeight]                   = usePersistentState(key('height'), 1024);
-  const [steps, setSteps]                     = usePersistentState(key('steps'), 11);
+  const [steps, setSteps]                     = usePersistentState(key('steps'), defaultSteps);
   const cfg                                   = 1.0;
   const [seed, setSeed]                       = usePersistentState(key('seed'), -1);
   const [loraEntries, setLoraEntries]         = usePersistentState<ZImageLoraEntry[]>(key('loras'), []);
@@ -206,6 +210,7 @@ export const Txt2ImgPage = ({
   // One-time defaults migration for existing browsers:
   // force Z-Image defaults to 11 steps / CFG 1.0.
   useEffect(() => {
+    if (storageKey !== 'zimage') return;
     try {
       const marker = `${storageKey}_defaults_migrated_v2`;
       if (window.localStorage.getItem(marker)) return;
@@ -327,21 +332,23 @@ export const Txt2ImgPage = ({
       if (requireImageUpload && uploadedImageName) {
         params[imageParamKey] = uploadedImageName;
       }
-      const activeLoras = loraEntries
-        .filter((l) => l.name && l.name.trim())
-        .map((l) => ({
-          name: resolveInstalledLoraName(l.name, availableLoras),
-          strength: l.strength,
-        }))
-        // Be more lenient: send the LoRA if the user selected it and it looks valid for the current prefixes.
-        // The backend has additional safety filters (especially for flux2klein).
-        .filter((l) => {
-          const normalized = normLora(l.name);
-          const hasValidPrefix = loraPrefixes.some(p => normalized.startsWith(normLora(p)));
-          const isInAvailable = availableLoras.some((a) => normLora(a) === normalized);
-          return hasValidPrefix || isInAvailable;
-        });
-      if (activeLoras.length > 0) params.loras = activeLoras;
+      const activeLoras = enableLoras
+        ? loraEntries
+            .filter((l) => l.name && l.name.trim())
+            .map((l) => ({
+              name: resolveInstalledLoraName(l.name, availableLoras),
+              strength: l.strength,
+            }))
+            // Be more lenient: send the LoRA if the user selected it and it looks valid for the current prefixes.
+            // The backend has additional safety filters (especially for flux2klein).
+            .filter((l) => {
+              const normalized = normLora(l.name);
+              const hasValidPrefix = loraPrefixes.some(p => normalized.startsWith(normLora(p)));
+              const isInAvailable = availableLoras.some((a) => normLora(a) === normalized);
+              return hasValidPrefix || isInAvailable;
+            })
+        : [];
+      if (enableLoras && activeLoras.length > 0) params.loras = activeLoras;
       console.log('[Generate] Sending to backend', { workflow_id: workflowId, hasLoras: (params.loras as any)?.length > 0 });
       const res = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.GENERATE}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -553,7 +560,7 @@ export const Txt2ImgPage = ({
             )}
           </div>
 
-          <div className="space-y-2">
+          {enableLoras && <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">Characters / LoRAs</span>
               <span className="text-[8px] font-mono text-white/20">{loraEntries.length || 1}/6</span>
@@ -594,9 +601,9 @@ export const Txt2ImgPage = ({
                 />
               ))}
             </div>
-          </div>
+          </div>}
 
-          <button
+          {enableLoras && <button
             onClick={() => setLoraEntries((prev) => (prev.length >= 6 ? prev : [...prev, { name: '', strength: 1.0 }]))}
             disabled={loraEntries.length >= 6}
             className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
@@ -606,7 +613,7 @@ export const Txt2ImgPage = ({
             }`}
           >
             <Plus className="h-3 w-3" /> Add LoRA
-          </button>
+          </button>}
 
           <div className="h-px bg-white/[0.04]" />
 

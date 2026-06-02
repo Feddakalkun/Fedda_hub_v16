@@ -87,6 +87,26 @@
       "notes": "Qwen image editing, reference-image generation, and multi-angle character views."
     },
     {
+      "id": "chroma-image",
+      "label": "Chroma Image",
+      "pack": "booster",
+      "area": "image",
+      "enabled": true,
+      "tabs": ["image"],
+      "workflows": [
+        "chroma1-hd-txt2img"
+      ],
+      "custom_nodes": [
+        "ComfyUI-Studio-nodes"
+      ],
+      "models": [
+        "Chroma1-HD.safetensors",
+        "flan-t5-xxl_float8_e4m3fn_scaled_stochastic.safetensors",
+        "ae.safetensors"
+      ],
+      "notes": "Official Lodestones Chroma1-HD text-to-image base workflow. Uses workflow-owned HuggingFaceDownloader for model bootstrap."
+    },
+    {
       "id": "wan-video",
       "label": "WAN Video Tools",
       "pack": "booster",
