@@ -28,6 +28,12 @@
 - Chroma now sends CFG `3.0` and defaults to `40` steps.
 - There is a one-time localStorage migration for `chroma_txt2img` to replace early bad defaults in browsers that already tested Chroma.
 
+## Latest Update - Chroma Weird Anatomy Tuning
+
+- Chroma swamp/wet prompts produced mutated organic artifacts.
+- Chroma now defaults to CFG `1.7`, exposes a Chroma-only CFG slider, and uses a stronger negative prompt against body-horror/fused-anatomy artifacts.
+- If Chroma still produces strange anatomy, next step is testing the older `ChromaDiffusionLoader` + `ChromaPaddingRemoval` workflow from `lodestones/Chroma`, which requires the missing custom nodes that are not installed in the current v16 Comfy instance.
+
 ## Current Goal
 
 Turn FEDDA Hub into a modular core + booster-pack architecture while preserving the working v15 behavior.

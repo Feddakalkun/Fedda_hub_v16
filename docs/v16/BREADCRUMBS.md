@@ -54,6 +54,19 @@
   - Chroma payload test confirmed CFG `3.0` and steps `40`.
   - Frontend build passed.
 
+## 2026-06-02 - Chroma Weird Anatomy Tuning
+
+- Observed Chroma generating strong organic/body-horror artifacts in wet/swamp prompts.
+- Lowered Chroma default CFG from `2.2` to `1.7`.
+- Added a compact CFG slider only for Chroma so quality can be tuned without code edits.
+- Expanded Chroma negative prompt to discourage:
+  - body horror
+  - mutated creatures / extra animals
+  - malformed arms/hands
+  - fused anatomy / melted body
+  - muddy skin artifacts
+- Added a new `chroma_txt2img_quality_defaults_v3` localStorage migration so browsers that tested old Chroma settings reset to the safer defaults.
+
 
 This file is the running trail for v16 modularization work. Add a new entry after every meaningful update so another agent can backtrack without guessing.
 

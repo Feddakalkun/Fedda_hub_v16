@@ -67,6 +67,9 @@ interface Txt2ImgPageConfig {
   defaultNegative?: string;
   quickModes?: QuickMode[];
   maxSteps?: number;
+  showCfgControl?: boolean;
+  minCfg?: number;
+  maxCfg?: number;
 }
 
 type LoraCatalogItem = {
@@ -122,6 +125,9 @@ export const Txt2ImgPage = ({
   defaultNegative = 'blurry, ugly, bad proportions, low quality, artifacts',
   quickModes = QUICK_MODES,
   maxSteps = 25,
+  showCfgControl = false,
+  minCfg = 0.5,
+  maxCfg = 5,
 }: Txt2ImgPageConfig) => {
   const key = (name: string) => `${storageKey}_${name}`;
   const [prompt, setPrompt]                   = usePersistentState(key('prompt'), '');
@@ -129,7 +135,7 @@ export const Txt2ImgPage = ({
   const [width, setWidth]                     = usePersistentState(key('width'), 1024);
   const [height, setHeight]                   = usePersistentState(key('height'), 1024);
   const [steps, setSteps]                     = usePersistentState(key('steps'), defaultSteps);
-  const cfg                                   = defaultCfg;
+  const [cfg, setCfg]                         = usePersistentState(key('cfg'), defaultCfg);
   const [seed, setSeed]                       = usePersistentState(key('seed'), -1);
   const [loraEntries, setLoraEntries]         = usePersistentState<ZImageLoraEntry[]>(key('loras'), []);
   const [loraPreviewMap, setLoraPreviewMap]   = useState<Record<string, string>>({});
@@ -240,15 +246,16 @@ export const Txt2ImgPage = ({
   useEffect(() => {
     if (storageKey !== 'chroma_txt2img') return;
     try {
-      const marker = `${storageKey}_quality_defaults_v2`;
+      const marker = `${storageKey}_quality_defaults_v3`;
       if (window.localStorage.getItem(marker)) return;
       setSteps(defaultSteps);
       setNegativePrompt(defaultNegative);
+      setCfg(defaultCfg);
       window.localStorage.setItem(marker, '1');
     } catch {
       // ignore storage access errors
     }
-  }, [defaultNegative, defaultSteps, setNegativePrompt, setSteps, storageKey]);
+  }, [defaultCfg, defaultNegative, defaultSteps, setCfg, setNegativePrompt, setSteps, storageKey]);
 
   // Ensure persisted size is valid for model families with strict resolution support.
   useEffect(() => {
@@ -559,7 +566,9 @@ export const Txt2ImgPage = ({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">Quick setup</div>
-                <div className="mt-0.5 text-[10px] text-white/25">CFG locked to {cfg.toFixed(1)}.</div>
+                <div className="mt-0.5 text-[10px] text-white/25">
+                  {showCfgControl ? `CFG ${cfg.toFixed(1)}.` : `CFG locked to ${cfg.toFixed(1)}.`}
+                </div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {quickModes.map((mode) => (
@@ -683,6 +692,18 @@ export const Txt2ImgPage = ({
                 onChange={e => setSteps(Number(e.target.value))}
                 className="w-full h-1 rounded-full appearance-none outline-none accent-zinc-300 cursor-pointer" />
             </div>
+
+            {showCfgControl && (
+              <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.2em] text-white/25">
+                  <span>CFG</span>
+                  <span className="text-zinc-300/80 font-mono">{cfg.toFixed(1)}</span>
+                </div>
+                <input type="range" min={minCfg} max={maxCfg} step="0.1" value={cfg}
+                  onChange={e => setCfg(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none outline-none accent-zinc-300 cursor-pointer" />
+              </div>
+            )}
 
             <div className="flex gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
               <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}

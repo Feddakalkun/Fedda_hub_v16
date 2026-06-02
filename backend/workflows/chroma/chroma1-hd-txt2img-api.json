@@ -28,7 +28,7 @@
       "model": ["701", 0],
       "positive": ["748", 0],
       "negative": ["749", 0],
-      "cfg": 2.2
+      "cfg": 1.7
     },
     "class_type": "CFGGuider"
   },
@@ -118,7 +118,7 @@
   "749": {
     "inputs": {
       "clip": ["741", 0],
-      "text": "low quality, ugly, unfinished, out of focus, deformed, disfigure, blurry, smudged, restricted palette, flat colors"
+      "text": "low quality, ugly, unfinished, out of focus, deformed, disfigure, blurry, smudged, restricted palette, flat colors, body horror, mutated creature, extra animal, fish, monster, malformed arms, deformed hands, fused anatomy, melted body, muddy skin artifacts, extra limbs, bad anatomy"
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
