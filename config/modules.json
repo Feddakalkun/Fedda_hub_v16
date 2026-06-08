@@ -40,8 +40,7 @@
       "workflows": [
         "z-image",
         "z-image-controlnet-pose",
-        "z-image-dual-base",
-        "z-image-dual-detail"
+        "z-image-dual-lora"
       ],
       "custom_nodes": [
         "rgthree-comfy",
@@ -68,7 +67,7 @@
       "enabled": true,
       "tabs": ["image"],
       "workflows": [
-        "qwen-edit-2512",
+        "qwen-rapid-edit-v23",
         "qwen-edit-2509-image-reference",
         "qwen-multi-angles",
         "qwen-multi-angles-fast"
@@ -81,10 +80,11 @@
       ],
       "models": [
         "Qwen image/edit model family",
+        "Qwen-Rapid-AIO-NSFW-v23.safetensors",
         "Florence2 grounding models",
         "SAM2 segmentation models"
       ],
-      "notes": "Qwen image editing, reference-image generation, and multi-angle character views."
+      "notes": "Qwen image editing, Rapid AIO v23 image editing, reference-image generation, and multi-angle character views."
     },
     {
       "id": "chroma-image",
@@ -94,7 +94,8 @@
       "enabled": true,
       "tabs": ["image"],
       "workflows": [
-        "chroma1-hd-txt2img"
+        "chroma1-hd-txt2img",
+        "chroma-simple-txt2img"
       ],
       "custom_nodes": [
         "ComfyUI-Studio-nodes"
@@ -102,9 +103,31 @@
       "models": [
         "Chroma1-HD.safetensors",
         "flan-t5-xxl_float8_e4m3fn_scaled_stochastic.safetensors",
-        "ae.safetensors"
+        "ae.safetensors",
+        "chroma/Chroma-Hyper-Flash-Heun-Low-Step-r04-fp32.safetensors (recommended low-step LoRA per 3090 Chroma setup)"
       ],
-      "notes": "Official Lodestones Chroma1-HD text-to-image base workflow. Uses workflow-owned HuggingFaceDownloader for model bootstrap."
+      "notes": "Official Chroma1-HD base plus a native Comfy comparison graph with softer defaults. Uses workflow-owned HuggingFaceDownloader for model bootstrap."
+    },
+    {
+      "id": "firered-image",
+      "label": "FireRed Image Edit",
+      "pack": "booster",
+      "area": "image",
+      "enabled": true,
+      "tabs": ["image"],
+      "workflows": [
+        "firered-image-edit"
+      ],
+      "custom_nodes": [
+        "ComfyUI-Studio-nodes"
+      ],
+      "models": [
+        "FireRed-Image-Edit-1.1-transformer.safetensors",
+        "FireRed-Image-Edit-1.0-Lightning-8steps-v1.1.safetensors",
+        "qwen2.5vl-7b-bf16.safetensors",
+        "qwen_image_vae.safetensors"
+      ],
+      "notes": "FireRed 1.1 image edit workflow with workflow-owned HuggingFaceDownloader bootstrap."
     },
     {
       "id": "wan-video",
@@ -117,7 +140,8 @@
         "wan21-steady-dancer",
         "wan22-vid2vid",
         "wan22-img2vid",
-        "wan22-img2vid-6frames"
+        "wan22-img2vid-6frames",
+        "wan21-infinite-talk-1person"
       ],
       "custom_nodes": [
         "ComfyUI-WanVideoWrapper",
@@ -125,7 +149,8 @@
         "ComfyUI-VideoHelperSuite",
         "ComfyUI-Frame-Interpolation",
         "ComfyMath",
-        "comfy_mtb"
+        "comfy_mtb",
+        "audio-separation-nodes-comfyui"
       ],
       "models": [
         "clip_vision_h.safetensors",
@@ -133,7 +158,7 @@
         "yolov10m.onnx",
         "Kijai WanVideo Comfy model bundle"
       ],
-      "notes": "WAN motion transfer, Steady Dancer, img2vid, vid2vid, interpolation, and WAN preprocessing."
+      "notes": "WAN motion transfer, Steady Dancer, img2vid, vid2vid, interpolation, WAN preprocessing, and audio-driven lipsync (InfiniteTalk/MultiTalk) with audio separation support."
     },
     {
       "id": "ltx-video",
@@ -144,13 +169,16 @@
       "tabs": ["video"],
       "workflows": [
         "ltx-flf",
-        "ltx-img2vid"
+        "ltx-img2vid",
+        "ltx-lipsync"
       ],
       "custom_nodes": [
         "ComfyUI-LTXVideo",
         "ComfyMath",
         "comfy_mtb",
-        "ComfyUI-VideoHelperSuite"
+        "ComfyUI-VideoHelperSuite",
+        "audio-separation-nodes-comfyui",
+        "ComfyUI-FishAudioS2"
       ],
       "models": [
         "LTX 2.3 model family"

@@ -150,8 +150,19 @@ foreach ($Node in $NodesConfig) {
     if (-not (Test-Path $NodeDir_Check)) { $HasMissing = $true; break }
 }
 
+# Explicitly ensure FishAudioS2 for LTX lipsync text-to-audio feature (even if not listed in every module's custom_nodes)
+$FishNode = $NodesConfig | Where-Object { $_.name -eq "ComfyUI-FishAudioS2" } | Select-Object -First 1
+if ($FishNode) {
+    $FishDir = Join-Path $CustomNodesDir $FishNode.folder
+    if (-not (Test-Path $FishDir)) {
+        $HasMissing = $true
+        Write-Host "  [LTX TTS] FishAudioS2 node is required but missing - will be installed." -ForegroundColor Yellow
+    }
+}
+
 # Always force-update nodes that ship new model architectures regularly
-$CriticalNodes = @("ComfyUI-LTXVideo", "RES4LYF", "ComfyUI-KJNodes")
+# Include FishAudioS2 because LTX lipsync text-to-audio depends on it
+$CriticalNodes = @("ComfyUI-LTXVideo", "RES4LYF", "ComfyUI-KJNodes", "ComfyUI-FishAudioS2")
 foreach ($CritNode in $CriticalNodes) {
     $CritDir = Join-Path $CustomNodesDir $CritNode
     if (Test-Path $CritDir) {
@@ -278,6 +289,12 @@ $LtxVideoPatch = Join-Path $RootPath "scripts\patch_ltxvideo_kornia.ps1"
 if (Test-Path $LtxVideoPatch) {
     Write-Host "  Applying LTXVideo Kornia compatibility patch..." -ForegroundColor Gray
     & powershell -ExecutionPolicy Bypass -File "$LtxVideoPatch" -RootPath "$RootPath"
+}
+
+$KJNodesPatch = Join-Path $RootPath "scripts\patch_kjnodes_ltx_audio_vae.ps1"
+if (Test-Path $KJNodesPatch) {
+    Write-Host "  Applying KJNodes LTX audio VAE compatibility patch..." -ForegroundColor Gray
+    & powershell -ExecutionPolicy Bypass -File "$KJNodesPatch" -RootPath "$RootPath"
 }
 
 # ============================================================================

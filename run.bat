@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 cd /d "%~dp0"
 title FEDDA Launcher
@@ -39,6 +40,7 @@ if "%1"==":svc_backend" (
 :: ENTRY POINT: Detect environment and launch
 :: ============================================================================
 call :detect_env
+if errorlevel 1 goto :missing_python
 
 echo.
 echo ============================================================================
@@ -54,18 +56,18 @@ echo.
 :: This makes every Python process in this session use a reliable CA bundle.
 :: The installer already ran the full repair; this is the runtime safety net.
 :: ============================================================================
-set "SSL_CERT_FILE=%BASE_DIR%\python_embeded\cacert.pem"
-set "REQUESTS_CA_BUNDLE=%BASE_DIR%\python_embeded\cacert.pem"
-set "CURL_CA_BUNDLE=%BASE_DIR%\python_embeded\cacert.pem"
+set "SSL_CERT_FILE=%PY_EMBED_DIR%\cacert.pem"
+set "REQUESTS_CA_BUNDLE=%PY_EMBED_DIR%\cacert.pem"
+set "CURL_CA_BUNDLE=%PY_EMBED_DIR%\cacert.pem"
 
 :: Optional: if the bundle is missing or tiny, run the repair script once
-if not exist "%BASE_DIR%\python_embeded\cacert.pem" (
+if not exist "%PY_EMBED_DIR%\cacert.pem" (
     echo [SSL] No CA bundle found - running one-time repair...
     if exist "%BASE_DIR%\scripts\fix_embedded_ssl.ps1" (
         powershell -ExecutionPolicy Bypass -File "%BASE_DIR%\scripts\fix_embedded_ssl.ps1" -RootPath "%BASE_DIR%"
     )
 ) else (
-    for /f "delims=" %%A in ('powershell -NoProfile -Command "try { (Get-Item '%BASE_DIR%\python_embeded\cacert.pem' -ErrorAction Stop).Length } catch { 0 }"') do set "CERTSIZE=%%A"
+    for /f "delims=" %%A in ('powershell -NoProfile -Command "try { (Get-Item '%PY_EMBED_DIR%\cacert.pem' -ErrorAction Stop).Length } catch { 0 }"') do set "CERTSIZE=%%A"
     if defined CERTSIZE (
         if !CERTSIZE! LSS 100000 (
             echo [SSL] CA bundle looks incomplete - repairing...
@@ -79,6 +81,16 @@ if not exist "%BASE_DIR%\python_embeded\cacert.pem" (
 :: ============================================================================
 :: MAIN LAUNCHER: Start services
 :: ============================================================================
+
+:: ============================================================================
+:: NODE REPAIR ON EVERY LAUNCH (automation owns critical nodes)
+:: Explicitly calls full update/repair logic so things like ComfyUI-FishAudioS2
+:: (required for LTX Lipsync text-to-audio) are guaranteed present.
+:: Runs silently but will install missing nodes from nodes.json + modules.
+:: ============================================================================
+echo [Node Repair] Ensuring critical custom nodes + running full repair logic on launch...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%BASE_DIR%\app\scripts\update_logic.ps1" -SilentMode
+timeout /t 1 /nobreak >nul
 
 call :cleanup_stale_services
 
@@ -174,7 +186,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$procs = Get-CimInstance Win32_Process | Where-Object {" ^
   "  $_.CommandLine -and (" ^
   "    $_.CommandLine -like ('*' + $base + '\\python_embeded\\python.exe* -u server.py*') -or " ^
+  "    $_.CommandLine -like ('*' + $base + '\\python_embedded\\python.exe* -u server.py*') -or " ^
   "    $_.CommandLine -like ('*' + $base + '\\python_embeded\\python.exe* main.py*') -or " ^
+  "    $_.CommandLine -like ('*' + $base + '\\python_embedded\\python.exe* main.py*') -or " ^
   "    $_.CommandLine -like ('*' + $base + '\\frontend\\*vite*')" ^
   "  )" ^
   "};" ^
@@ -213,24 +227,55 @@ goto :wait_loop
 :: ============================================================================
 :detect_env
 set "MODE="
+set "PYTHON="
+set "PY_EMBED_DIR="
 if exist "%BASE_DIR%\python_embeded\python.exe" (
     set "MODE=portable"
     set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
+    set "PY_EMBED_DIR=%BASE_DIR%\python_embeded"
     set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%BASE_DIR%\git\cmd;%BASE_DIR%\node_embeded;%PATH%"
+    set "COMFY_EXTRA_FLAGS=--windows-standalone-build --force-upcast-attention"
+) else if exist "%BASE_DIR%\python_embedded\python.exe" (
+    set "MODE=portable"
+    set "PYTHON=%BASE_DIR%\python_embedded\python.exe"
+    set "PY_EMBED_DIR=%BASE_DIR%\python_embedded"
+    set "PATH=%BASE_DIR%\python_embedded;%BASE_DIR%\python_embedded\Scripts;%BASE_DIR%\git\cmd;%BASE_DIR%\node_embeded;%PATH%"
     set "COMFY_EXTRA_FLAGS=--windows-standalone-build --force-upcast-attention"
 ) else if exist "%BASE_DIR%\venv\Scripts\python.exe" (
     set "MODE=lite"
     set "PYTHON=%BASE_DIR%\venv\Scripts\python.exe"
+    set "PY_EMBED_DIR=%BASE_DIR%\venv"
     set "COMFY_EXTRA_FLAGS="
 ) else (
-    echo.
-    echo [ERROR] No Python environment found!
-    echo        Run INSTALL.bat or INSTALL-LITE.bat first.
-    echo.
-    pause
     exit /b 1
 )
-exit /b
+exit /b 0
+
+:: ============================================================================
+:: SUBROUTINE: MISSING PYTHON MESSAGE
+:: ============================================================================
+:missing_python
+echo.
+echo [ERROR] No Python environment found!
+echo        FEDDA is not installed yet, or Python install failed.
+echo.
+echo        Expected one of:
+echo          %BASE_DIR%\python_embeded\python.exe
+echo          %BASE_DIR%\python_embedded\python.exe
+echo          %BASE_DIR%\venv\Scripts\python.exe
+echo.
+if exist "%BASE_DIR%\INSTALL-LITE.bat" (
+    echo        Run INSTALL-LITE.bat first, then RUN.bat.
+) else if exist "%BASE_DIR%\INSTALL.bat" (
+    echo        Run INSTALL.bat first, then RUN.bat.
+) else if exist "%BASE_DIR%\scripts\install.bat" (
+    echo        Run scripts\install.bat first, then RUN.bat.
+) else (
+    echo        Installer files are missing. Re-run the one-click FEDDA installer.
+)
+echo.
+pause
+exit /b 1
 
 :: ============================================================================
 :: SUBROUTINE: OLLAMA
@@ -262,6 +307,7 @@ set "COMFYUI_DIR=%BASE_DIR%\ComfyUI"
 
 :: Detect Python (call detect_env subroutine)
 call :detect_env
+if errorlevel 1 goto :missing_python
 
 set COMFYUI_OFFLINE=1
 set TORIO_USE_FFMPEG=0
@@ -292,6 +338,7 @@ set "BACKEND_DIR=%BASE_DIR%\backend"
 
 :: Detect Python (call detect_env subroutine)
 call :detect_env
+if errorlevel 1 goto :missing_python
 set "PYTHONPATH=%BACKEND_DIR%;%PYTHONPATH%"
 
 echo [%date% %time%] Clearing port 8000...
